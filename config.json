@@ -1,5 +1,12 @@
 {
   "max_pages": 100,
   "delay_seconds": 2,
-  "searches": []
+  "searches": [
+    {
+      "price_to": "4000",
+      "km_to": "150000",
+      "year_from": "2012",
+      "country": "B"
+    }
+  ]
 }

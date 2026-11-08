@@ -1,13 +1,23 @@
 {
- "updated": "2026-11-08T22:23:10+00:00",
+ "updated": "2026-11-08T22:39:51+00:00",
  "searches": [
+  {
+   "slug": "volkswagen-polo-des2019",
+   "label": "Volkswagen Polo · dès 2019",
+   "count": 613,
+   "updated": "2026-11-08T22:39:51+00:00",
+   "error": null,
+   "new": 0,
+   "watched": false
+  },
   {
    "slug": "polo",
    "label": "Polo",
    "count": 700,
    "updated": "2026-11-08T22:23:10+00:00",
    "error": null,
-   "new": 682
+   "new": 682,
+   "watched": true
   }
  ]
 }

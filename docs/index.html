@@ -6,6 +6,13 @@
 <meta name="theme-color" content="#101214" media="(prefers-color-scheme: dark)">
 <meta name="theme-color" content="#eceae5" media="(prefers-color-scheme: light)">
 <title>AutoScout Radar</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Radar">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@600;800;900&family=Instrument+Sans:wght@400;500;600;700&family=Martian+Mono:wdth,wght@87.5,500;87.5,700&display=swap">
@@ -66,6 +73,7 @@ a { color: inherit; }
 .topbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .brand { display: flex; align-items: center; gap: 12px; text-decoration: none; }
 .brand small { font: 600 11px var(--f-body); letter-spacing: .16em; text-transform: uppercase; color: var(--dim); }
+@media (max-width: 430px) { .brand small { display: none; } }
 .icon-btn { width: 42px; height: 42px; display: grid; place-items: center; border-radius: 12px; border: 1px solid var(--line); background: var(--panel); cursor: pointer; position: relative; }
 .icon-btn svg { width: 20px; height: 20px; }
 .icon-btn .pip { position: absolute; top: 8px; right: 8px; width: 8px; height: 8px; border-radius: 50%; background: var(--warn); border: 2px solid var(--panel); }
@@ -237,6 +245,58 @@ dialog[open] .sheet { animation: up .28s cubic-bezier(.2,.8,.2,1); }
 .howto a { color: var(--amber); }
 .code { font: 500 12px var(--f-mono); background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 1px 6px; color: var(--chalk); }
 
+/* ---------- boutons sur les photos ---------- */
+.cbtns { position: absolute; right: 8px; top: 8px; display: flex; gap: 6px; z-index: 2; }
+.cbtn { width: 34px; height: 34px; border-radius: 50%; border: 0; display: grid; place-items: center; cursor: pointer;
+        background: rgba(10, 11, 12, .55); color: #fff; backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); }
+.cbtn svg { width: 17px; height: 17px; }
+.cbtn[aria-pressed="true"].fav { background: var(--amber); color: var(--amber-ink); }
+.cbtn[aria-pressed="true"].cmp { background: var(--chalk); color: var(--asphalt); }
+.cbtn.fav[aria-pressed="true"] svg { fill: currentColor; }
+
+/* ---------- ligne négo + historique ---------- */
+.deal-line { display: flex; align-items: center; justify-content: space-between; gap: 10px; font-size: 12.5px; color: var(--dim); }
+.deal-line b { color: var(--chalk); font-family: var(--f-mono); font-size: 12px; }
+.spark { width: 64px; height: 20px; flex: none; }
+.spark path { fill: none; stroke: var(--deal); stroke-width: 1.6; stroke-linejoin: round; stroke-linecap: round; }
+.spark circle { fill: var(--deal); }
+.age { white-space: nowrap; }
+.age.old { color: var(--new); }
+
+/* ---------- note du modèle ---------- */
+.model-note { margin: 0; font-size: 13px; color: var(--dim); }
+.model-note b { color: var(--chalk); }
+.effects { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.effects span { font: 600 11px var(--f-mono); background: var(--panel-2); border-radius: 6px; padding: 4px 7px; color: var(--dim); }
+.effects span.up { color: var(--deal); } .effects span.down { color: var(--warn); }
+
+/* ---------- marché + vendues ---------- */
+.panel { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 16px; display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+.empty-note { color: var(--dim); font-size: 13.5px; margin: 0; }
+.sold-list { display: flex; flex-direction: column; }
+.sold-row { display: grid; grid-template-columns: 52px minmax(0, 1fr) auto; gap: 12px; align-items: center; padding: 10px 0; border-top: 1px dashed var(--line); text-decoration: none; color: inherit; }
+.sold-row:first-child { border-top: 0; }
+.sold-row img, .sold-row .ph { width: 52px; height: 40px; object-fit: cover; border-radius: 6px; background: var(--panel-2); }
+.sold-row .t { min-width: 0; }
+.sold-row .t b { display: block; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sold-row .t span { font-size: 12px; color: var(--dim); }
+.sold-row .r { text-align: right; font: 700 13px var(--f-mono); }
+.sold-row .r small { display: block; font: 500 11px var(--f-body); color: var(--dim); }
+
+/* ---------- comparateur ---------- */
+.tray { position: fixed; z-index: 20; left: 50%; transform: translateX(-50%); bottom: calc(18px + env(safe-area-inset-bottom, 0px));
+        display: flex; align-items: center; gap: 6px; background: var(--chalk); color: var(--asphalt); border-radius: 99px; padding: 6px; box-shadow: 0 12px 30px -10px rgba(0,0,0,.6); }
+.tray button { border: 0; border-radius: 99px; padding: 10px 16px; font-weight: 700; cursor: pointer; background: transparent; color: inherit; white-space: nowrap; }
+.tray .go { background: var(--asphalt); color: var(--chalk); }
+.cmp-wrap { overflow-x: auto; margin-inline: -4px; }
+.cmpt { border-collapse: collapse; width: 100%; min-width: 460px; font-size: 13px; }
+.cmpt th, .cmpt td { padding: 9px 8px; border-top: 1px solid var(--line); vertical-align: top; text-align: left; }
+.cmpt th { color: var(--dim); font: 600 10.5px var(--f-body); letter-spacing: .1em; text-transform: uppercase; white-space: nowrap; width: 1%; }
+.cmpt td { font-variant-numeric: tabular-nums; }
+.cmpt td.best { color: var(--deal); font-weight: 700; }
+.cmpt img { width: 100%; max-width: 160px; aspect-ratio: 4/3; object-fit: cover; border-radius: 8px; display: block; }
+.cmpt a { color: var(--amber); }
+
 [hidden] { display: none !important; }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
 </style>
@@ -251,6 +311,9 @@ dialog[open] .sheet { animation: up .28s cubic-bezier(.2,.8,.2,1); }
   <symbol id="i-search" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m20 20-4.8-4.8"/></g></symbol>
   <symbol id="i-edit" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h4L19 9l-4-4L4 16v4Z"/><path d="m13.5 6.5 4 4"/></g></symbol>
   <symbol id="i-trash" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></g></symbol>
+  <symbol id="i-star" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" d="m12 3 2.8 5.7 6.2.9-4.5 4.4 1 6.2L12 17.3 6.5 20.2l1-6.2L3 9.6l6.2-.9L12 3Z"/></symbol>
+  <symbol id="i-cmp" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h13l-3-3M20 17H7l3 3"/></g></symbol>
+  <symbol id="i-gear" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 0 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 0 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 0 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 0 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1Z"/></g></symbol>
   <symbol id="i-eye" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/></g></symbol>
 </svg>
 
@@ -260,7 +323,10 @@ dialog[open] .sheet { animation: up .28s cubic-bezier(.2,.8,.2,1); }
       <span class="plate lg"><span class="eu"><svg><use href="#stars"/></svg><b>B</b></span><span class="txt">1-ASC-024</span></span>
       <small>Radar<br>d'occasions</small>
     </a>
-    <button class="icon-btn" id="keyBtn" type="button" aria-label="Clé GitHub"><svg><use href="#i-key"/></svg><span class="pip" id="keyPip"></span></button>
+    <div style="display:flex;gap:8px">
+      <button class="icon-btn" id="setBtn" type="button" aria-label="Réglages"><svg><use href="#i-gear"/></svg></button>
+      <button class="icon-btn" id="keyBtn" type="button" aria-label="Clé GitHub"><svg><use href="#i-key"/></svg><span class="pip" id="keyPip"></span></button>
+    </div>
   </header>
 
   <nav class="tabs" id="tabs" aria-label="Recherches enregistrées"></nav>
@@ -299,6 +365,7 @@ dialog[open] .sheet { animation: up .28s cubic-bezier(.2,.8,.2,1); }
     <div class="sec-head"><h2>Prix × kilomètres<small>Touche un point pour ouvrir l'annonce.</small></h2></div>
     <div class="legend"><span><i style="background:var(--deal)"></i>Bonne affaire</span><span><i style="background:var(--dot)"></i>Autre annonce</span><span><i style="background:var(--amber);border-radius:2px;height:2px;width:14px;vertical-align:3px"></i>Tendance</span></div>
     <div class="canvas-box"><canvas id="chart" aria-label="Nuage de points prix en fonction du kilométrage"></canvas></div>
+    <div id="modelNote"></div>
   </section>
 
   <section style="display:flex;flex-direction:column;gap:14px">
@@ -312,9 +379,15 @@ dialog[open] .sheet { animation: up .28s cubic-bezier(.2,.8,.2,1); }
         <option value="-price">Prix décroissant</option>
         <option value="km">Km croissant</option>
         <option value="-year">Plus récentes</option>
+        <option value="old">En ligne depuis longtemps</option>
+        <option value="dist" id="optDist" disabled>Plus proches de chez moi</option>
+      </select>
+      <select class="field" id="maxDist" aria-label="Distance maximale" hidden>
+        <option value="">Toute distance</option><option value="25">≤ 25 km</option><option value="50">≤ 50 km</option><option value="100">≤ 100 km</option>
       </select>
     </div>
     <div class="toolbar">
+      <label class="chip"><input type="checkbox" id="onlyFav">★ Favoris</label>
       <label class="chip"><input type="checkbox" id="onlyDeals">Bonnes affaires</label>
       <label class="chip"><input type="checkbox" id="onlyNew">Nouvelles</label>
       <label class="chip"><input type="checkbox" id="onlyDrop">Prix en baisse</label>
@@ -324,6 +397,23 @@ dialog[open] .sheet { animation: up .28s cubic-bezier(.2,.8,.2,1); }
     <div class="grid" id="grid"></div>
     <button class="more" id="more" type="button" hidden>Voir plus</button>
   </section>
+
+  <section class="panel" id="marketSec">
+    <div class="sec-head"><h2>Le marché<small id="marketSub">Prix médian et fourchette des prix (25 % à 75 % des annonces), jour après jour.</small></h2></div>
+    <div class="canvas-box" id="marketBox" style="height:240px"><canvas id="marketChart" aria-label="Évolution du prix médian"></canvas></div>
+    <p class="empty-note" id="marketEmpty" hidden></p>
+  </section>
+
+  <section class="panel" id="soldSec">
+    <div class="sec-head"><h2>Vendues ou retirées<small id="soldSub"></small></h2></div>
+    <div class="sold-list" id="soldList"></div>
+    <button class="more" id="soldMore" type="button" hidden>Voir plus</button>
+  </section>
+</div>
+
+<div class="tray" id="tray" hidden>
+  <button class="go" id="cmpGo" type="button">Comparer</button>
+  <button id="cmpClear" type="button" aria-label="Vider la comparaison">✕</button>
 </div>
 
 <button class="fab" id="fab" type="button"><svg><use href="#i-search"/></svg>Nouvelle recherche</button>
@@ -400,6 +490,38 @@ dialog[open] .sheet { animation: up .28s cubic-bezier(.2,.8,.2,1); }
   </form>
 </dialog>
 
+<!-- Feuille : comparateur -->
+<dialog id="cmpDlg" aria-labelledby="cmpTitle">
+  <div class="sheet">
+    <div class="sheet-top"><span class="grabber"></span><button class="close" type="button" data-close aria-label="Fermer">✕</button></div>
+    <h3 id="cmpTitle">Comparer</h3>
+    <div class="cmp-wrap"><table class="cmpt" id="cmpTable"></table></div>
+  </div>
+</dialog>
+
+<!-- Feuille : réglages -->
+<dialog id="setDlg" aria-labelledby="setTitle">
+  <form class="sheet" id="setForm" method="dialog">
+    <div class="sheet-top"><span class="grabber"></span><button class="close" type="button" data-close aria-label="Fermer">✕</button></div>
+    <h3 id="setTitle">Réglages</h3>
+    <div class="form">
+      <label class="full">Ton code postal<input class="field" id="homeZip" inputmode="numeric" maxlength="4" placeholder="6110"></label>
+    </div>
+    <p>Sert à afficher la distance de chaque annonce (estimée par la route) et à trier par proximité. Il reste sur cet appareil.</p>
+    <div class="formmsg" id="setMsg" role="alert"></div>
+    <div class="actions"><button class="btn go" type="submit">Enregistrer</button></div>
+
+    <h3 style="font-size:24px;margin-top:6px">Alertes sur le téléphone</h3>
+    <ol class="howto">
+      <li>Installe l'app gratuite <b>ntfy</b> (App Store ou Play Store).</li>
+      <li>Abonne-toi à un nom de canal difficile à deviner, par exemple <span class="code" id="ntfySuggest">radar-xxxx</span>.</li>
+      <li>Dans ton repo : <a href="#" id="secretLink" target="_blank" rel="noopener">Settings → Secrets → Actions</a> → <b>New repository secret</b>, nom <span class="code">NTFY_TOPIC</span>, valeur = ce nom de canal.</li>
+      <li>Coche « Surveiller toutes les 6 h » sur tes recherches : tu reçois une notification pour chaque nouvelle bonne affaire et chaque baisse de prix.</li>
+    </ol>
+    <p>Pour Discord, même principe avec un secret <span class="code">DISCORD_WEBHOOK</span> contenant l'URL du webhook de ton salon.</p>
+  </form>
+</dialog>
+
 <datalist id="makes">
   <option value="volkswagen"><option value="audi"><option value="bmw"><option value="mercedes-benz"><option value="skoda"><option value="seat"><option value="cupra">
   <option value="peugeot"><option value="citroen"><option value="renault"><option value="dacia"><option value="opel"><option value="ford"><option value="fiat">
@@ -434,6 +556,50 @@ const REPO = onPages ? (location.pathname.split('/')[1] || 'AutoScout-scrapper')
 const API = `https://api.github.com/repos/${OWNER}/${REPO}`;
 $('#repoName').textContent = `${OWNER}/${REPO}`;
 
+/* ============================================================ favoris, comparaison, distance */
+const readJSON = (k, d) => { try { return JSON.parse(store.get(k) || '') ?? d; } catch { return d; } };
+let favs = readJSON('favs', {});           // id -> { slug, label, snap, savedAt }
+let cmpIds = [];                            // jusqu'à 3 annonces
+const saveFavs = () => store.set('favs', JSON.stringify(favs));
+const SNAP_KEYS = ['id', 'url', 'make', 'model', 'version', 'price', 'price_label', 'km', 'year', 'first_reg', 'fuel', 'gear', 'power', 'zip', 'city', 'country',
+                   'seller', 'seller_name', 'image', 'delta', 'expected_price', 'suspicious', 'first_seen', 'price_history', 'price_drop', 'is_new'];
+const snap = c => Object.fromEntries(SNAP_KEYS.map(k => [k, c[k]]));
+
+let ZIP = null, home = store.get('home_zip') || '';
+async function loadZip() { if (ZIP) return ZIP; try { ZIP = await (await fetch('zip-be.json')).json(); } catch { ZIP = {}; } return ZIP; }
+function dist(c) {
+  if (!home || !ZIP || !c.zip || (c.country && c.country !== 'BE')) return null;
+  const a = ZIP[home], b = ZIP[c.zip]; if (!a || !b) return null;
+  const r = Math.PI / 180, dLat = (b[0] - a[0]) * r, dLon = (b[1] - a[1]) * r;
+  const h = Math.sin(dLat / 2) ** 2 + Math.cos(a[0] * r) * Math.cos(b[0] * r) * Math.sin(dLon / 2) ** 2;
+  return Math.round(2 * 6371 * Math.asin(Math.sqrt(h)) * 1.25);   // ×1,25 : vol d'oiseau -> route
+}
+
+let trackStart = null;   // premier passage du scraper sur cette recherche
+const days = c => c.first_seen ? Math.max(0, Math.floor((Date.now() - new Date(c.first_seen)) / 864e5)) : null;
+function ageLabel(c) {
+  const d = days(c); if (d == null) return '';
+  const atStart = trackStart && c.first_seen && Math.abs(new Date(c.first_seen) - trackStart) < 36e5;
+  if (atStart) return d === 0 ? 'suivie depuis aujourd\'hui' : `en ligne depuis ≥ ${d} j`;
+  return d === 0 ? "apparue aujourd'hui" : `en ligne depuis ${d} j`;
+}
+function nego(c) {
+  if (!c.price || c.suspicious) return null;
+  let r = 0.03 + Math.min((days(c) ?? 0) / 30 * 0.02, 0.06);
+  if (c.price_drop) r += 0.01;
+  if (c.delta != null && c.delta > 0) r += Math.min(c.delta, 0.10);
+  if ((c.seller || '').toLowerCase().startsWith('p')) r += 0.01;
+  r = Math.min(r, 0.18);
+  return { target: Math.round(c.price * (1 - r) / 50) * 50, pct: r };
+}
+function spark(hist) {
+  if (!hist || hist.length < 2) return '';
+  const ys = hist.map(h => h[1]), lo = Math.min(...ys), hi = Math.max(...ys), w = 64, hgt = 20;
+  const pts = ys.map((y, i) => [2 + i * (w - 4) / (ys.length - 1), hi === lo ? hgt / 2 : 3 + (hi - y) / (hi - lo) * (hgt - 6)]);
+  const last = pts.at(-1);
+  return `<svg class="spark" viewBox="0 0 ${w} ${hgt}" role="img" aria-label="Historique : ${hist.map(h => fmt(h[1]) + ' €').join(', ')}"><path d="M${pts.map(p => p.map(v => v.toFixed(1)).join(' ')).join(' L')}"/><circle cx="${last[0].toFixed(1)}" cy="${last[1].toFixed(1)}" r="2.2"/></svg>`;
+}
+
 /* ============================================================ données */
 let index = [], current = null, cars = [], trend = null, chart = null, shown = 24, currentSlug = null;
 
@@ -451,7 +617,8 @@ async function loadIndex() {
 
 function renderTabs() {
   $('#tabs').innerHTML = index.map(s => `<button class="tab" type="button" data-slug="${esc(s.slug)}" aria-pressed="${s.slug === currentSlug}">${
-      s.watched ? '<svg role="img" aria-label="surveillée"><use href="#i-eye"/></svg>' : ''}${esc(s.label)}<span class="n">${s.count ?? 0}</span></button>`).join('');
+      s.watched ? '<svg role="img" aria-label="surveillée"><use href="#i-eye"/></svg>' : ''}${esc(s.label)}<span class="n">${s.count ?? 0}</span></button>`).join('')
+    + (Object.keys(favs).length ? `<button class="tab" type="button" data-slug="__fav" aria-pressed="${currentSlug === '__fav'}">★ Favoris<span class="n">${Object.keys(favs).length}</span></button>` : '');
 }
 $('#tabs').addEventListener('click', e => { const b = e.target.closest('.tab'); if (b) load(b.dataset.slug); });
 
@@ -460,9 +627,22 @@ async function load(slug) {
   renderTabs();
   try { history.replaceState(null, '', '#' + slug); } catch {}
   let d;
-  try { d = await getJSON(`data/${slug}.json`); }
-  catch { $('#alert').hidden = false; $('#alert').textContent = 'Impossible de charger cette recherche. Recharge la page dans une minute.'; return; }
+  if (slug === '__fav') {
+    d = { label: 'Mes favoris', listings: Object.values(favs).sort((a, b) => b.savedAt - a.savedAt).map(f => ({ ...f.snap, _from: f.label })), fav: true };
+  } else {
+    try { d = await getJSON(`data/${slug}.json`); }
+    catch { $('#alert').hidden = false; $('#alert').textContent = 'Impossible de charger cette recherche. Recharge la page dans une minute.'; return; }
+  }
   current = d; cars = d.listings || []; shown = 24;
+  if (!d.fav) {
+    // met à jour les favoris présents dans cette recherche, et signale ceux qui ont disparu
+    const ids = new Set(cars.map(c => c.id)); let changed = false;
+    for (const c of cars) if (favs[c.id]) { favs[c.id].snap = snap(c); favs[c.id].label = d.label; changed = true; }
+    for (const [id, f] of Object.entries(favs)) if (f.slug === slug && !ids.has(id) && d.complete && !f.snap.gone) { f.snap.gone = true; changed = true; }
+    if (changed) saveFavs();
+  }
+  const seen = cars.map(c => c.first_seen).filter(Boolean).map(t => new Date(t).getTime());
+  trackStart = seen.length ? Math.min(...seen) : null;
 
   const pts = cars.filter(c => c.price && c.km != null && !c.suspicious);
   trend = null;
@@ -475,7 +655,7 @@ async function load(slug) {
   const words = (d.label || slug).split(' · ')[0].trim().split(/\s+/);
   $('#heroTitle').innerHTML = words.length > 1 ? `${esc(words.slice(0, -1).join(' '))} <em>${esc(words.at(-1))}</em>` : `<em>${esc(words[0])}</em>`;
   const extra = (d.label || '').split(' · ').slice(1);
-  $('#meta').innerHTML = [
+  $('#meta').innerHTML = d.fav ? `<span>${cars.length} annonce${cars.length > 1 ? 's' : ''} gardée${cars.length > 1 ? 's' : ''} sur cet appareil, toutes recherches confondues</span>` : [
     `<span>Mis à jour ${ago(d.updated)}</span>`,
     `<span>${fmt(cars.length)} annonces${d.total_announced ? ` sur ${fmt(d.total_announced)}` : ''}</span>`,
     ...extra.map(f => `<span>${esc(f)}</span>`),
@@ -484,9 +664,10 @@ async function load(slug) {
   $('#alert').hidden = !d.last_error;
   $('#alert').textContent = d.last_error ? `Dernier passage ${ago(d.last_attempt)} : ${d.last_error}` : '';
 
-  $('#heroActions').hidden = false;
+  $('#heroActions').hidden = !!d.fav;
   disarmDelete();
-  renderCluster(); renderPodium(); drawChart(); drawGrid(true);
+  if (home) await loadZip();
+  renderCluster(); renderPodium(); drawChart(); renderModel(); drawGrid(true); renderMarket(); renderSold();
 }
 
 /* ============================================================ tableau de bord */
@@ -526,18 +707,25 @@ function card(c, i, opts = {}) {
   const verdict = d == null ? '' : d <= -0.03 ? `<span class="pill good">${Math.round(d * 100)} %</span>` : d >= 0.03 ? `<span class="pill meh">+${Math.round(d * 100)} %</span>` : '<span class="pill meh">dans la moyenne</span>';
   const img = c.image ? c.image.replace(/\/\d+x\d+\.webp$/, opts.big ? '/720x540.webp' : '/480x360.webp') : '';
   const initial = (c.model || c.make || '?').slice(0, 1);
+  const n = nego(c), km = dist(c), isFav = !!favs[c.id], inCmp = cmpIds.includes(c.id);
+  const age = ageLabel(c), old = (days(c) ?? 0) >= 30;
   return `<a class="card ${opts.reveal ? 'reveal' : ''}" style="--i:${i % 12}" href="${esc(c.url)}" target="_blank" rel="noopener">
     <div class="photo">
       ${img ? `<img src="${esc(img)}" alt="" loading="lazy" decoding="async" onerror="this.onerror=null;this.src='${esc(c.image)}'">` : `<span class="noimg">${esc(initial)}</span>`}
-      <div class="badges">${c.suspicious ? '<span class="badge warn">À vérifier</span>' : ''}${c.is_new ? '<span class="badge new">Nouveau</span>' : ''}${c.price_drop ? `<span class="badge drop">−${fmt(c.price_drop)} €</span>` : ''}</div>
+      <div class="badges">${c.gone ? '<span class="badge warn">Plus en ligne</span>' : ''}${c.suspicious ? '<span class="badge warn">À vérifier</span>' : ''}${c.is_new ? '<span class="badge new">Nouveau</span>' : ''}${c.price_drop ? `<span class="badge drop">−${fmt(c.price_drop)} €</span>` : ''}</div>
+      <div class="cbtns">
+        <button class="cbtn cmp" type="button" data-cmp="${esc(c.id)}" aria-pressed="${inCmp}" aria-label="Comparer"><svg><use href="#i-cmp"/></svg></button>
+        <button class="cbtn fav" type="button" data-fav="${esc(c.id)}" aria-pressed="${isFav}" aria-label="Favori"><svg><use href="#i-star"/></svg></button>
+      </div>
       ${plate(`${fmt(c.price)} €`)}
       ${opts.rank ? `<span class="rank">${opts.rank}</span>` : ''}
     </div>
     <div class="body">
       <div class="title"><b>${esc(c.make)} ${esc(c.model)}</b><span>${esc(c.version) || '&nbsp;'}</span></div>
       <div class="verdict">${verdict}${c.expected_price ? `<span class="expected">attendu ≈ ${fmt(c.expected_price)} €</span>` : ''}${lab ? `<span class="pill ${lab[1]}">${lab[0]}</span>` : ''}</div>
+      ${n ? `<div class="deal-line"><span>Négo : vise <b>${fmt(n.target)} €</b> (−${Math.round(n.pct * 100)} %)</span>${spark(c.price_history)}</div>` : ''}
       <div class="specs">${odo(c.km)}<span>${esc(c.first_reg || c.year || '')}</span><span>${esc(c.fuel || '')}</span><span>${esc((c.gear || '').replace(/^Boîte /, ''))}</span><span>${esc(c.power || '')}</span></div>
-      <div class="where"><span>${esc([c.zip, c.city].filter(Boolean).join(' '))}</span><span>${esc(c.seller_name || (c.seller === 'Private' ? 'Particulier' : ''))}</span></div>
+      <div class="where"><span>${esc([c.zip, c.city].filter(Boolean).join(' '))}${km != null ? (km < 4 ? ' · tout près' : ` · ≈ ${km} km`) : ''}</span><span class="age ${old ? 'old' : ''}">${esc(c._from || age)}</span></div>
     </div></a>`;
 }
 
@@ -547,14 +735,16 @@ function renderPodium() {
   $('#podium').innerHTML = top.map((c, i) => card(c, i, { big: true, rank: i + 1, reveal: !reduced })).join('');
 }
 
-const FILTERS = ['#q', '#order', '#onlyNew', '#onlyDeals', '#onlyDrop', '#hideSus'];
+const FILTERS = ['#q', '#order', '#maxDist', '#onlyFav', '#onlyNew', '#onlyDeals', '#onlyDrop', '#hideSus'];
 function drawGrid(reveal = false) {
   const q = $('#q').value.trim().toLowerCase(), order = $('#order').value;
   const list = cars.filter(c => (!q || [c.make, c.model, c.version, c.city, c.zip, c.fuel, c.gear, c.first_reg, c.seller_name].join(' ').toLowerCase().includes(q))
     && (!$('#onlyNew').checked || c.is_new) && (!$('#onlyDeals').checked || isDeal(c)) && (!$('#onlyDrop').checked || c.price_drop)
-    && (!$('#hideSus').checked || !c.suspicious));
+    && (!$('#hideSus').checked || !c.suspicious) && (!$('#onlyFav').checked || favs[c.id])
+    && (!$('#maxDist').value || (dist(c) ?? Infinity) <= +$('#maxDist').value));
   const key = { deal: c => c.suspicious ? 8 : (c.delta ?? 9), new: c => -new Date(c.first_seen || 0), price: c => c.price ?? Infinity,
-                '-price': c => -(c.price ?? 0), km: c => c.km ?? Infinity, '-year': c => -(c.year ?? 0) }[order];
+                '-price': c => -(c.price ?? 0), km: c => c.km ?? Infinity, '-year': c => -(c.year ?? 0),
+                old: c => -(days(c) ?? 0), dist: c => dist(c) ?? Infinity }[order];
   list.sort((a, b) => key(a) - key(b));
   $('#count').textContent = `${fmt(list.length)} / ${fmt(cars.length)}`;
   if (!list.length) {
@@ -567,6 +757,151 @@ function drawGrid(reveal = false) {
 }
 FILTERS.forEach(s => ['input', 'change'].forEach(ev => $(s).addEventListener(ev, () => { shown = 24; drawGrid(); })));
 $('#more').onclick = () => { shown += 24; drawGrid(); };
+
+/* ============================================================ favoris & comparaison (clics sur les cartes) */
+document.addEventListener('click', e => {
+  const f = e.target.closest('[data-fav]'), m = e.target.closest('[data-cmp]');
+  if (!f && !m) return;
+  e.preventDefault(); e.stopPropagation();
+  const id = (f || m).dataset.fav || (f || m).dataset.cmp;
+  const c = cars.find(x => x.id === id) || favs[id]?.snap;
+  if (!c) return;
+  if (f) {
+    if (favs[id]) delete favs[id]; else favs[id] = { slug: currentSlug === '__fav' ? favs[id]?.slug : currentSlug, label: current?.label || '', snap: snap(c), savedAt: Date.now() };
+    saveFavs(); renderTabs();
+    document.querySelectorAll(`[data-fav="${CSS.escape(id)}"]`).forEach(b => b.setAttribute('aria-pressed', !!favs[id]));
+    if (currentSlug === '__fav' && !favs[id]) load('__fav');
+  } else {
+    cmpIds = cmpIds.includes(id) ? cmpIds.filter(x => x !== id) : [...cmpIds, id].slice(-3);
+    cmpPool[id] = c;
+    document.querySelectorAll('[data-cmp]').forEach(b => b.setAttribute('aria-pressed', cmpIds.includes(b.dataset.cmp)));
+    renderTray();
+  }
+}, true);
+
+const cmpPool = {};
+function renderTray() {
+  const n = cmpIds.length;
+  $('#tray').hidden = !n || !$('#job').hidden;
+  $('#fab').hidden = !!n || !$('#job').hidden;
+  $('#cmpGo').textContent = n < 2 ? `Comparer (${n}/3) · ajoute-en une autre` : `Comparer ${n} voitures`;
+  $('#cmpGo').disabled = n < 2;
+}
+$('#cmpClear').onclick = () => { cmpIds = []; document.querySelectorAll('[data-cmp]').forEach(b => b.setAttribute('aria-pressed', false)); renderTray(); };
+$('#cmpGo').onclick = () => {
+  const list = cmpIds.map(id => cmpPool[id]).filter(Boolean);
+  const best = (vals, low = true) => { const v = vals.filter(x => x != null); if (v.length < 2) return null; return low ? Math.min(...v) : Math.max(...v); };
+  const rows = [
+    ['', c => c.image ? `<img src="${esc(c.image.replace(/\/\d+x\d+\.webp$/, '/480x360.webp'))}" alt="">` : ''],
+    ['Modèle', c => `<b>${esc(c.make)} ${esc(c.model)}</b><br><span style="color:var(--dim)">${esc(c.version || '')}</span>`],
+    ['Prix', c => `${fmt(c.price)} €`, c => c.price, true],
+    ['Attendu', c => c.expected_price ? `${fmt(c.expected_price)} €` : '—'],
+    ['Écart', c => c.delta != null ? `${Math.round(c.delta * 100)} %` : '—', c => c.delta, true],
+    ['Négo', c => { const n = nego(c); return n ? `${fmt(n.target)} €` : '—'; }],
+    ['Km', c => fmt(c.km), c => c.km, true],
+    ['Année', c => esc(c.first_reg || c.year || '—'), c => c.year, false],
+    ['Puissance', c => esc(c.power || '—')],
+    ['Carburant', c => esc(c.fuel || '—')],
+    ['Boîte', c => esc((c.gear || '—').replace(/^Boîte /, ''))],
+    ['Distance', c => { const d = dist(c); return d != null ? `≈ ${d} km` : '—'; }, c => dist(c), true],
+    ['En ligne', c => days(c) != null ? `${days(c)} j` : '—', c => days(c), false],
+    ['Baisse', c => c.price_drop ? `−${fmt(c.price_drop)} €` : '—', c => c.price_drop, false],
+    ['Vendeur', c => esc(c.seller_name || (c.seller === 'Private' ? 'Particulier' : '—'))],
+    ['Lieu', c => esc([c.zip, c.city].filter(Boolean).join(' ') || '—')],
+    ['', c => `<a href="${esc(c.url)}" target="_blank" rel="noopener">Voir l'annonce ↗</a>`],
+  ];
+  $('#cmpTable').innerHTML = rows.map(([lbl, show, val, low]) => {
+    const b = val ? best(list.map(val), low) : null;
+    return `<tr><th>${lbl}</th>${list.map(c => `<td class="${b != null && val(c) === b ? 'best' : ''}">${show(c)}</td>`).join('')}</tr>`;
+  }).join('');
+  $('#cmpDlg').showModal();
+};
+
+/* ============================================================ modèle, marché, vendues */
+function renderModel() {
+  const m = current?.model;
+  if (!m || current?.fav) { $('#modelNote').innerHTML = ''; return; }
+  const words = { 'âge': 'chaque année en plus', 'km': '10 000 km en plus', 'puissance': '10 kW en plus', 'diesel': 'diesel', 'hybride': 'hybride',
+                  'électrique': 'électrique', 'boîte auto': 'boîte auto', 'vendeur pro': 'chez un pro' };
+  const eff = Object.entries(m.effects || {}).filter(([, v]) => Math.abs(v) >= 0.01)
+    .map(([k, v]) => `<span class="${v > 0 ? 'up' : 'down'}">${words[k] || k} ${v > 0 ? '+' : '−'}${Math.round(Math.abs(v) * 100)} %</span>`).join('');
+  $('#modelNote').innerHTML = `<p class="model-note">Prix attendu calculé sur <b>${fmt(m.n)} annonces</b>, il explique <b>${Math.round(m.r2 * 100)} %</b> des écarts de prix. Ce qui fait varier le prix ici :</p><div class="effects">${eff}</div>`;
+}
+
+let marketChart = null;
+function renderMarket() {
+  const mk = current?.market || [];
+  $('#marketSec').hidden = !!current?.fav || !mk.length;
+  if (!mk.length) return;
+  const last = mk.at(-1);
+  if (mk.length < 2) {
+    $('#marketBox').hidden = true; $('#marketEmpty').hidden = false;
+    $('#marketEmpty').textContent = `Aujourd'hui : prix médian ${fmt(last.median)} € (la moitié des annonces entre ${fmt(last.p25)} et ${fmt(last.p75)} €). La courbe se dessine dès le deuxième jour de surveillance.`;
+    return;
+  }
+  $('#marketBox').hidden = false; $('#marketEmpty').hidden = true;
+  const first = mk[0], diff = last.median && first.median ? (last.median / first.median - 1) : null;
+  $('#marketSub').textContent = `Prix médian et fourchette des prix (25 % à 75 % des annonces), jour après jour.${diff != null ? ` Depuis le ${new Date(first.date).toLocaleDateString('fr-BE')} : ${diff >= 0 ? '+' : '−'}${Math.abs(Math.round(diff * 1000) / 10)} %.` : ''}`;
+  if (!window.Chart) return;
+  const ink = cssVar('--dim'), grid = cssVar('--line'), amber = cssVar('--amber');
+  const labels = mk.map(m => new Date(m.date).toLocaleDateString('fr-BE', { day: 'numeric', month: 'short' }));
+  const ds = [
+    { label: '75 %', data: mk.map(m => m.p75), borderWidth: 0, pointRadius: 0, fill: '+1', backgroundColor: cssVar('--deal-bg') },
+    { label: '25 %', data: mk.map(m => m.p25), borderWidth: 0, pointRadius: 0, fill: false },
+    { label: 'Médian', data: mk.map(m => m.median), borderColor: amber, borderWidth: 2.5, pointRadius: mk.length < 20 ? 3 : 0, pointBackgroundColor: amber, tension: .25 },
+  ];
+  const opts = { maintainAspectRatio: false, animation: false, interaction: { mode: 'index', intersect: false },
+    scales: { x: { ticks: { color: ink, maxTicksLimit: 6, font: { family: 'Martian Mono', size: 10 } }, grid: { display: false }, border: { display: false } },
+              y: { ticks: { color: ink, maxTicksLimit: 5, callback: v => `${Math.round(v / 1000)}k`, font: { family: 'Martian Mono', size: 10 } }, grid: { color: grid }, border: { display: false } } },
+    plugins: { legend: { display: false }, tooltip: { callbacks: { label: c => `${c.dataset.label} : ${fmt(c.raw)} €` } } } };
+  if (marketChart) { marketChart.data = { labels, datasets: ds }; marketChart.options = opts; marketChart.update('none'); }
+  else marketChart = new Chart($('#marketChart'), { type: 'line', data: { labels, datasets: ds }, options: opts });
+}
+
+let soldShown = 8;
+function renderSold() {
+  const sold = (current?.sold || []).filter(s => !s.suspicious);
+  $('#soldSec').hidden = !!current?.fav || !sold.length;
+  if (!sold.length) return;
+  const dd = sold.map(s => s.days_online).filter(v => v != null);
+  const fast = sold.filter(s => (s.delta ?? 0) <= -0.10).map(s => s.days_online).filter(v => v != null);
+  $('#soldSub').textContent = `${sold.length} annonce${sold.length > 1 ? 's' : ''} disparue${sold.length > 1 ? 's' : ''} depuis le début du suivi · délai médian ${Math.round(median(dd))} j`
+    + (fast.length >= 3 ? ` · les bonnes affaires partent en ${Math.round(median(fast))} j` : '') + '. Une annonce peut aussi disparaître si le vendeur la retire.';
+  $('#soldList').innerHTML = sold.slice(0, soldShown).map(s => `<a class="sold-row" href="${esc(s.url)}" target="_blank" rel="noopener">
+      ${s.image ? `<img src="${esc(s.image)}" alt="" loading="lazy">` : '<span class="ph"></span>'}
+      <span class="t"><b>${esc(s.make)} ${esc(s.model)} · ${esc(s.first_reg || s.year || '')}</b><span>${fmt(s.km)} km${s.delta != null ? ` · ${Math.round(s.delta * 100)} % vs attendu` : ''} · ${ago(s.gone_at)}</span></span>
+      <span class="r">${fmt(s.price)} €<small>${s.days_online} j en ligne${s.first_price && s.first_price > s.price ? ` · −${fmt(s.first_price - s.price)} €` : ''}</small></span></a>`).join('');
+  $('#soldMore').hidden = sold.length <= soldShown;
+}
+$('#soldMore').onclick = () => { soldShown += 12; renderSold(); };
+
+/* ============================================================ réglages */
+function refreshHome() {
+  $('#optDist').disabled = !home; $('#maxDist').hidden = !home;
+  if (!home && ($('#order').value === 'dist')) $('#order').value = 'deal';
+  if (!home) $('#maxDist').value = '';
+}
+refreshHome();
+$('#setBtn').onclick = () => {
+  $('#homeZip').value = home; $('#setMsg').textContent = '';
+  let t = store.get('ntfy_suggest'); if (!t) { t = 'radar-' + Math.random().toString(36).slice(2, 10); store.set('ntfy_suggest', t); }
+  $('#ntfySuggest').textContent = t;
+  $('#secretLink').href = `https://github.com/${OWNER}/${REPO}/settings/secrets/actions/new`;
+  $('#setDlg').showModal();
+};
+$('#setForm').addEventListener('submit', async e => {
+  e.preventDefault();
+  const z = $('#homeZip').value.trim();
+  if (z) {
+    await loadZip();
+    if (!ZIP[z]) { $('#setMsg').className = 'formmsg'; $('#setMsg').textContent = 'Code postal belge introuvable. Vérifie les 4 chiffres.'; return; }
+  }
+  home = z; store.set('home_zip', z || null); refreshHome();
+  $('#setMsg').className = 'formmsg ok'; $('#setMsg').textContent = z ? 'Enregistré. Les distances sont affichées sur les annonces.' : 'Code postal retiré.';
+  if (z && $('#order').value === 'deal') { /* on laisse le tri choisi */ }
+  drawGrid(); renderPodium();
+  setTimeout(() => $('#setDlg').close(), 900);
+});
 
 /* ============================================================ graphique */
 const cssVar = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
@@ -735,13 +1070,13 @@ $('#delBtn').onclick = async () => {
 /* ============================================================ suivi d'une recherche */
 let tracking = null;
 function setJob(phase, detail, fail = false) {
-  $('#job').hidden = false; $('#fab').hidden = true;
+  $('#job').hidden = false; $('#fab').hidden = true; $('#tray').hidden = true;
   document.querySelectorAll('#jobSteps .step').forEach(el => { const s = +el.dataset.s;
     el.className = 'step' + (s < phase ? ' done' : s === phase ? (fail ? ' fail' : phase === 3 ? ' done' : ' on') : ''); });
   $('#jobDetail').innerHTML = detail;
 }
 function endJob() { store.set('job', null); clearTimeout(tracking); tracking = null; }
-$('#jobClose').onclick = () => { $('#job').hidden = true; $('#fab').hidden = false; };
+$('#jobClose').onclick = () => { $('#job').hidden = true; renderTray(); };
 
 async function track(job) {
   const what = [job.search.make, job.search.model].filter(Boolean).join(' ') || 'toutes marques';
@@ -773,7 +1108,7 @@ async function track(job) {
           endJob();
           if (idx.length) await load(idx[0].slug);
           else { current = null; cars = []; $('#heroActions').hidden = true; $('#heroTitle').innerHTML = 'Aucune <em>recherche</em>'; $('#meta').innerHTML = ''; renderCluster(); renderPodium(); drawChart(); drawGrid(); }
-          setTimeout(() => { $('#job').hidden = true; $('#fab').hidden = false; }, 4000);
+          setTimeout(() => { $('#job').hidden = true; renderTray(); }, 4000);
           return;
         }
         if (Date.now() - new Date(job.doneAt || job.startedAt).getTime() > 6 * 60e3) { setJob(2, 'La page tarde à se mettre à jour. Recharge-la dans quelques minutes.', true); endJob(); return; }
@@ -786,7 +1121,7 @@ async function track(job) {
           endJob();
           await load(fresh.slug);
           window.scrollTo({ top: 0, behavior: reduced ? 'auto' : 'smooth' });
-          setTimeout(() => { $('#job').hidden = true; $('#fab').hidden = false; }, 6000);
+          setTimeout(() => { $('#job').hidden = true; renderTray(); }, 6000);
           return;
         }
         if (Date.now() - new Date(job.doneAt || job.startedAt).getTime() > 6 * 60e3) {
@@ -802,6 +1137,9 @@ async function track(job) {
   setJob(job.phase, job.kind === 'delete' ? 'Envoi de la demande de suppression…' : 'Envoi de la demande à GitHub…');
   tick();
 }
+
+/* ============================================================ app installable */
+if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js').catch(() => {});
 
 /* ============================================================ démarrage */
 (async () => {

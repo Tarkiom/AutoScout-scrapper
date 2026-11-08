@@ -65,6 +65,7 @@ jobs:
       - name: Scraper
         env:
           DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
+          NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}
           IN_MAKE: ${{ inputs.make }}
           IN_MODEL: ${{ inputs.model }}
           IN_PRICE_TO: ${{ inputs.price_to }}

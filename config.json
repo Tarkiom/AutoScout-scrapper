@@ -1,12 +1,5 @@
 {
   "max_pages": 100,
   "delay_seconds": 2,
-  "searches": [
-    {
-      "name": "Polo",
-      "make": "volkswagen",
-      "model": "polo",
-      "country": "B"
-    }
-  ]
+  "searches": []
 }

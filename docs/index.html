@@ -745,6 +745,8 @@ $('#jobClose').onclick = () => { $('#job').hidden = true; $('#fab').hidden = fal
 
 async function track(job) {
   const what = [job.search.make, job.search.model].filter(Boolean).join(' ') || 'toutes marques';
+  const labels = job.kind === 'delete' ? ['Envoi', 'Suppression', 'Mise à jour', 'Terminé'] : ['Envoi', 'Scraping', 'Publication', 'Prêt'];
+  document.querySelectorAll('#jobSteps .step').forEach((el, i) => { el.textContent = labels[i]; });
   $('#jobTitle').textContent = job.kind === 'delete' ? `Suppression : ${job.label}` : job.kind === 'edit' ? `Modification : ${what}` : `Recherche ${what}`;
   const started = new Date(job.startedAt).getTime();
   const tick = async () => {
@@ -797,7 +799,7 @@ async function track(job) {
     }
     tracking = setTimeout(tick, job.phase === 0 ? 4000 : 8000);
   };
-  setJob(job.phase, 'Envoi de la demande à GitHub…');
+  setJob(job.phase, job.kind === 'delete' ? 'Envoi de la demande de suppression…' : 'Envoi de la demande à GitHub…');
   tick();
 }
 

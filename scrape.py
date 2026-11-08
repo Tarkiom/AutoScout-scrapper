@@ -40,20 +40,27 @@ def search_slug(s: dict) -> str:
         return scraper.slug(s["name"])
     parts = [s.get("make"), s.get("model"), s.get("price_to") and f"max{s['price_to']}",
              s.get("km_to") and f"km{s['km_to']}", s.get("year_from") and f"des{s['year_from']}",
-             s.get("fuel"), s.get("zip") and f"cp{s['zip']}"]
+             s.get("fuel"), s.get("gear"), s.get("zip") and f"cp{s['zip']}", s.get("radius") and f"r{s['radius']}"]
     return scraper.slug("-".join(str(p) for p in parts if p)) or "recherche"
 
 
 def search_label(s: dict) -> str:
     if s.get("name"):
         return s["name"]
-    bits = [f"{(s.get('make') or 'Toutes marques').title()} {(s.get('model') or '').title()}".strip()]
+    bits = [f"{(s.get('make') or 'Toutes marques').replace('-', ' ').title()} {(s.get('model') or '').replace('-', ' ').title()}".strip()]
     if s.get("price_to"):
         bits.append(f"≤ {int(s['price_to']):,} €".replace(",", " "))
     if s.get("km_to"):
         bits.append(f"≤ {int(s['km_to']):,} km".replace(",", " "))
     if s.get("year_from"):
         bits.append(f"dès {s['year_from']}")
+    fuels = {"B": "essence", "D": "diesel", "E": "électrique", "2": "hybride", "L": "GPL", "C": "CNG"}
+    if s.get("fuel"):
+        bits.append(fuels.get(s["fuel"], s["fuel"]))
+    if s.get("gear"):
+        bits.append({"M": "manuelle", "A": "automatique"}.get(s["gear"], s["gear"]))
+    if s.get("zip"):
+        bits.append(f"{s.get('radius') or '?'} km autour de {s['zip']}" if s.get("radius") else f"CP {s['zip']}")
     return " · ".join(bits)
 
 
@@ -275,7 +282,7 @@ def main():
         except ValueError:
             sys.exit("search_json invalide")
         cli = {k: str(v).strip() for k, v in raw.items() if k in FILTER_KEYS + ["name"] and str(v or "").strip()}
-    searches = [cli] if cli.get("make") or cli.get("model") or cli.get("name") else cfg.get("searches", [])
+    searches = [cli] if cli else cfg.get("searches", [])
 
     if a.watch and cli:
         known = {search_slug(s) for s in cfg.get("searches", [])}

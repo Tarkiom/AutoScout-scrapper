@@ -200,7 +200,9 @@ dialog::backdrop { background: rgba(5, 6, 7, .62); backdrop-filter: blur(3px); -
 @media (min-width: 720px) { .sheet { border-radius: 22px; padding: 20px 24px 24px; } }
 dialog[open] .sheet { animation: up .28s cubic-bezier(.2,.8,.2,1); }
 @keyframes up { from { transform: translateY(24px); opacity: .4; } }
-.grabber { width: 40px; height: 4px; border-radius: 4px; background: var(--line); align-self: center; }
+.sheet-top { position: relative; display: flex; justify-content: center; min-height: 34px; align-items: center; margin-bottom: -8px; }
+.grabber { width: 40px; height: 4px; border-radius: 4px; background: var(--line); }
+.close { position: absolute; right: -6px; top: 0; width: 36px; height: 36px; border-radius: 50%; border: 1px solid var(--line); background: var(--panel); color: var(--dim); cursor: pointer; font-size: 15px; line-height: 1; }
 @media (min-width: 720px) { .grabber { display: none; } }
 .sheet h3 { margin: 0; font: 800 32px/.95 var(--f-display); text-transform: uppercase; }
 .sheet p { margin: 0; color: var(--dim); font-size: 14px; }
@@ -326,12 +328,12 @@ dialog[open] .sheet { animation: up .28s cubic-bezier(.2,.8,.2,1); }
 <!-- Feuille : nouvelle recherche -->
 <dialog id="searchDlg" aria-labelledby="searchTitle">
   <form class="sheet" id="searchForm" method="dialog">
-    <span class="grabber"></span>
+    <div class="sheet-top"><span class="grabber"></span><button class="close" type="button" data-close aria-label="Fermer">✕</button></div>
     <h3 id="searchTitle">Nouvelle recherche</h3>
-    <p>Le scraping tourne sur GitHub et prend 1 à 4 minutes. Les résultats s'affichent ici dès qu'ils sont prêts.</p>
+    <p>Tous les champs sont facultatifs : laisse la marque vide pour chercher toutes les voitures qui correspondent à tes filtres. Le scraping tourne sur GitHub et prend 1 à 4 minutes.</p>
     <div class="form">
-      <label>Marque<input class="field" name="make" id="f-make" list="makes" placeholder="volkswagen" autocomplete="off" autocapitalize="none" required></label>
-      <label>Modèle<input class="field" name="model" id="f-model" placeholder="polo" autocomplete="off" autocapitalize="none"></label>
+      <label>Marque<input class="field" name="make" id="f-make" list="makes" placeholder="toutes" autocomplete="off" autocapitalize="none"></label>
+      <label>Modèle<input class="field" name="model" id="f-model" placeholder="tous" autocomplete="off" autocapitalize="none"></label>
       <label>Prix max (€)<input class="field" name="price_to" id="f-price" inputmode="numeric" placeholder="15000"></label>
       <label>Km max<input class="field" name="km_to" id="f-km" inputmode="numeric" placeholder="150000"></label>
       <label>Année min<input class="field" name="year_from" id="f-year" inputmode="numeric" placeholder="2015"></label>
@@ -366,7 +368,7 @@ dialog[open] .sheet { animation: up .28s cubic-bezier(.2,.8,.2,1); }
 <!-- Feuille : clé GitHub -->
 <dialog id="keyDlg" aria-labelledby="keyTitle">
   <form class="sheet" id="keyForm" method="dialog">
-    <span class="grabber"></span>
+    <div class="sheet-top"><span class="grabber"></span><button class="close" type="button" data-close aria-label="Fermer">✕</button></div>
     <h3 id="keyTitle">Clé GitHub</h3>
     <p>Pour lancer une recherche depuis ce site, il lui faut une clé qui a le droit de démarrer le workflow de ton repo. Elle reste enregistrée sur cet appareil uniquement.</p>
     <ol class="howto">
@@ -381,6 +383,7 @@ dialog[open] .sheet { animation: up .28s cubic-bezier(.2,.8,.2,1); }
     <div class="formmsg" id="keyMsg" role="alert"></div>
     <div class="actions">
       <button class="btn" type="button" id="keyForget">Oublier la clé</button>
+      <button class="btn" type="button" id="keyLater" data-close>Plus tard</button>
       <button class="btn go" type="submit" id="keySave">Vérifier et enregistrer</button>
     </div>
   </form>
@@ -593,12 +596,13 @@ async function gh(path, opts = {}) {
 
 let pendingSearch = false;
 $('#keyBtn').onclick = () => {
+  $('#keyForget').hidden = !token(); $('#keyLater').hidden = !!token();
   $('#tokenInput').value = '';
   $('#keyMsg').className = 'formmsg' + (token() ? ' ok' : '');
   $('#keyMsg').textContent = token() ? 'Une clé est déjà enregistrée sur cet appareil.' : '';
   $('#keyDlg').showModal();
 };
-$('#keyForget').onclick = () => { store.set('gh_token', null); refreshKeyPip(); $('#keyMsg').className = 'formmsg ok'; $('#keyMsg').textContent = 'Clé supprimée de cet appareil.'; };
+$('#keyForget').onclick = () => { store.set('gh_token', null); refreshKeyPip(); $('#keyForget').hidden = true; $('#keyLater').hidden = false; $('#keyMsg').className = 'formmsg ok'; $('#keyMsg').textContent = 'Clé supprimée de cet appareil.'; };
 $('#keyForm').addEventListener('submit', async e => {
   e.preventDefault();
   const t = $('#tokenInput').value.trim();
@@ -627,6 +631,11 @@ function openSearch() {
 }
 $('#fab').onclick = () => { if (!token()) { pendingSearch = true; $('#keyBtn').click(); } else openSearch(); };
 $('#searchCancel').onclick = () => $('#searchDlg').close();
+document.querySelectorAll('dialog').forEach(dlg => {
+  dlg.querySelectorAll('[data-close]').forEach(b => b.addEventListener('click', () => dlg.close()));
+  // Toucher en dehors de la feuille la ferme
+  dlg.addEventListener('click', e => { if (e.target === dlg) dlg.close(); });
+});
 
 const slugify = s => String(s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
 $('#searchForm').addEventListener('submit', async e => {
@@ -638,7 +647,8 @@ $('#searchForm').addEventListener('submit', async e => {
     if (!val) continue;
     search[k] = k === 'make' || k === 'model' ? slugify(val) : k === 'name' ? val : val.replace(/\s/g, '');
   }
-  if (!search.make) { $('#formMsg').textContent = 'Indique au moins une marque.'; return; }
+  if (search.model && !search.make) { $('#formMsg').textContent = 'Pour choisir un modèle, indique aussi la marque.'; return; }
+  if (!Object.keys(search).some(k => k !== 'country' && k !== 'name')) { $('#formMsg').textContent = 'Choisis au moins un critère : marque, prix max, km max, année, carburant…'; return; }
   for (const k of ['price_to', 'km_to', 'year_from', 'zip']) if (search[k] && !/^\d+$/.test(search[k])) { $('#formMsg').textContent = 'Prix, km, année et code postal doivent être des nombres.'; return; }
   const watch = $('#f-watch').checked;
   const id = Math.random().toString(36).slice(2, 8);
@@ -669,7 +679,7 @@ function endJob() { store.set('job', null); clearTimeout(tracking); tracking = n
 $('#jobClose').onclick = () => { $('#job').hidden = true; $('#fab').hidden = false; };
 
 async function track(job) {
-  $('#jobTitle').textContent = `Recherche ${[job.search.make, job.search.model].filter(Boolean).join(' ')}`;
+  $('#jobTitle').textContent = `Recherche ${[job.search.make, job.search.model].filter(Boolean).join(' ') || 'toutes marques'}`;
   const started = new Date(job.startedAt).getTime();
   const tick = async () => {
     try {

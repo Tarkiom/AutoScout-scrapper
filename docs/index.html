@@ -298,6 +298,96 @@ dialog[open] .sheet { animation: up .28s cubic-bezier(.2,.8,.2,1); }
 .cmpt img { width: 100%; max-width: 160px; aspect-ratio: 4/3; object-fit: cover; border-radius: 8px; display: block; }
 .cmpt a { color: var(--amber); }
 
+/* ---------- mise en page par vues ---------- */
+.wrap { gap: 20px; }
+.hero { gap: 12px; }
+.hero-row { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.hero h1 { font-size: clamp(44px, 12.5vw, 104px); }
+.hero-actions { flex: none; display: flex; gap: 8px; padding-top: 6px; }
+.icon-btn.danger { color: var(--warn); width: auto; min-width: 42px; padding-inline: 10px; gap: 6px; display: inline-flex; align-items: center; justify-content: center; }
+.icon-btn.danger span { display: none; font: 700 13px var(--f-body); }
+.icon-btn.danger.armed { background: var(--warn); color: #2b0904; border-color: var(--warn); }
+.icon-btn.danger.armed span { display: inline; }
+
+.quick { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 1px; background: var(--line); border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; }
+.quick button { background: var(--panel); border: 0; padding: 11px 10px 10px; text-align: left; cursor: pointer; display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.quick button b { font: 700 clamp(15px, 4.4vw, 21px)/1.1 var(--f-mono); font-stretch: 87.5%; letter-spacing: -.02em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-variant-numeric: tabular-nums; }
+.quick button span { font: 600 9.5px/1.2 var(--f-body); letter-spacing: .1em; text-transform: uppercase; color: var(--dim); }
+.quick button.good b { color: var(--deal); } .quick button.hot b { color: var(--new); }
+.quick button[aria-pressed="true"] { background: var(--panel-2); box-shadow: inset 0 -3px 0 var(--amber); }
+.quick button:disabled { cursor: default; }
+
+.stickybar { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 15; margin-inline: -16px; padding: 8px 16px 10px;
+             background: color-mix(in srgb, var(--asphalt) 88%, transparent); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+             border-bottom: 1px solid var(--line); display: flex; flex-direction: column; gap: 8px; }
+body::after { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); background: var(--asphalt); z-index: 16; }
+.views { display: grid; grid-template-columns: repeat(3, 1fr); background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 3px; gap: 3px; }
+.views button { border: 0; background: transparent; border-radius: 9px; padding: 8px 6px; font-weight: 700; font-size: 14px; color: var(--dim); cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 6px; }
+.views button[aria-selected="true"] { background: var(--chalk); color: var(--asphalt); }
+.views .n { font: 500 11px var(--f-mono); opacity: .7; }
+#annTools { flex-wrap: nowrap; }
+#annTools .field[type=search] { flex: 1 1 auto; min-width: 0; }
+#annTools select { flex: 0 1 auto; max-width: 46%; }
+.filt-btn { flex: none; position: relative; width: 44px; height: 44px; display: grid; place-items: center; border-radius: 11px; border: 1px solid var(--line); background: var(--panel); cursor: pointer; }
+.filt-btn svg { width: 20px; height: 20px; }
+.filt-n { position: absolute; top: -6px; right: -6px; min-width: 19px; height: 19px; border-radius: 99px; background: var(--amber); color: var(--amber-ink); font: 700 11px/19px var(--f-mono); text-align: center; padding: 0 4px; }
+.view { display: flex; flex-direction: column; gap: 26px; }
+.sect { display: flex; flex-direction: column; gap: 14px; }
+.sec-head .count { margin-left: 0; }
+.active { display: flex; flex-wrap: wrap; gap: 6px; }
+.active:empty { display: none; }
+.active button { display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--line); background: var(--panel-2); color: var(--chalk); border-radius: 99px; padding: 5px 10px; font-size: 12.5px; font-weight: 600; cursor: pointer; }
+.active button::after { content: "✕"; font-size: 10px; color: var(--dim); }
+.chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.podium { display: flex; overflow-x: auto; scroll-snap-type: x mandatory; margin-inline: -16px; padding-inline: 16px; scroll-padding-inline: 16px; scrollbar-width: none; gap: 12px; }
+.podium::-webkit-scrollbar { display: none; }
+.podium > * { flex: 0 0 min(80%, 320px); scroll-snap-align: start; }
+.podium .card .photo { aspect-ratio: 16 / 10; }
+.rank { font-size: 52px; }
+@media (min-width: 900px) { .podium { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); overflow: visible; margin-inline: 0; padding-inline: 0; } .podium > * { flex: none; } }
+
+/* ---------- cartes compactes sur téléphone (liste) ---------- */
+@media (max-width: 640px) {
+  .grid { gap: 10px; }
+  .grid .card { display: grid; grid-template-columns: 38% minmax(0, 1fr); }
+  .grid .card .photo { aspect-ratio: auto; height: 100%; min-height: 150px; }
+  .grid .card .photo::after { height: 45%; }
+  .grid .card .photo .plate { left: 6px; bottom: 6px; }
+  .grid .card .photo .plate .txt { font-size: 12px; padding: 4px 6px 3px; }
+  .grid .card .photo .plate .eu { padding: 2px 2px 1px; }
+  .grid .card .photo .plate .eu svg { width: 9px; height: 9px; }
+  .grid .card .photo .plate .eu b { font-size: 6px; }
+  .grid .card .badges { left: 6px; top: 6px; gap: 4px; flex-direction: column; align-items: flex-start; }
+  .grid .card .badge { font-size: 9px; padding: 4px 5px; }
+  .grid .card .cbtns { right: auto; left: 6px; top: auto; bottom: 34px; gap: 4px; }
+  .grid .card .cbtn { width: 28px; height: 28px; }
+  .grid .card .cbtn svg { width: 14px; height: 14px; }
+  .grid .card .body { padding: 10px 11px 11px; gap: 6px; }
+  .grid .card .title b { font-size: 17px; }
+  .grid .card .title span { font-size: 12px; }
+  .grid .card .verdict { gap: 5px; }
+  .grid .card .expected { display: none; }
+  .grid .card .pill { font-size: 10px; padding: 4px 5px; }
+  .grid .card .flags { font-size: 11.5px; padding: 5px 7px; }
+  .grid .card .deal-line { font-size: 11.5px; }
+  .grid .card .spark { width: 48px; height: 16px; }
+  .grid .card .specs { gap: 3px 8px; font-size: 11.5px; }
+  .grid .card .specs span:nth-of-type(n+4) { display: none; }
+  .grid .card .odo i { font-size: 10px; min-width: 12px; padding: 3px 2px; }
+  .grid .card .odo em { display: none; }
+  .grid .card .where { font-size: 11.5px; padding-top: 6px; flex-direction: column; gap: 1px; }
+  .grid .card .where span:last-child { text-align: left; }
+  .card:hover { transform: none; }
+}
+
+/* ---------- bouton rond ---------- */
+@media (max-width: 640px) {
+  .fab { left: auto; right: max(16px, env(safe-area-inset-right, 0px)); transform: none; width: 58px; height: 58px; padding: 0; justify-content: center; font-size: 0; gap: 0; }
+  .fab svg { width: 24px; height: 24px; }
+}
+.quick { grid-template-columns: 1.35fr 1fr 1fr 1fr; }
+.quick button b { font-size: clamp(14px, 4.1vw, 21px); }
+
 [hidden] { display: none !important; }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
 </style>
@@ -315,6 +405,7 @@ dialog[open] .sheet { animation: up .28s cubic-bezier(.2,.8,.2,1); }
   <symbol id="i-star" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" d="m12 3 2.8 5.7 6.2.9-4.5 4.4 1 6.2L12 17.3 6.5 20.2l1-6.2L3 9.6l6.2-.9L12 3Z"/></symbol>
   <symbol id="i-cmp" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h13l-3-3M20 17H7l3 3"/></g></symbol>
   <symbol id="i-gear" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 0 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 0 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 0 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 0 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1Z"/></g></symbol>
+  <symbol id="i-filter" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M4 6h16M7 12h10M10 18h4"/></g></symbol>
   <symbol id="i-eye" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/></g></symbol>
 </svg>
 
@@ -333,46 +424,26 @@ dialog[open] .sheet { animation: up .28s cubic-bezier(.2,.8,.2,1); }
   <nav class="tabs" id="tabs" aria-label="Recherches enregistrées"></nav>
 
   <section class="hero">
-    <h1 id="heroTitle">Chargement</h1>
+    <div class="hero-row">
+      <h1 id="heroTitle">Chargement</h1>
+      <div class="hero-actions" id="heroActions" hidden>
+        <button class="icon-btn" id="editBtn" type="button" aria-label="Modifier la recherche"><svg><use href="#i-edit"/></svg></button>
+        <button class="icon-btn danger" id="delBtn" type="button" aria-label="Supprimer la recherche"><svg><use href="#i-trash"/></svg><span>Supprimer</span></button>
+      </div>
+    </div>
     <div class="meta" id="meta"></div>
-    <div class="hero-actions" id="heroActions" hidden>
-      <button class="ghost" id="editBtn" type="button"><svg><use href="#i-edit"/></svg>Modifier</button>
-      <button class="ghost danger" id="delBtn" type="button"><svg><use href="#i-trash"/></svg><span>Supprimer</span></button>
-    </div>
     <div class="alert" id="alert" hidden></div>
+    <div class="quick" id="quick"></div>
   </section>
 
-  <section class="cluster" aria-label="Tableau de bord">
-    <div class="gauge">
-      <svg viewBox="0 0 220 168" role="img" aria-labelledby="gaugeTxt">
-        <path d="M20 118 A90 90 0 0 1 200 118" fill="none" stroke="var(--line)" stroke-width="14" stroke-linecap="round"/>
-        <path id="gaugeArc" d="M20 118 A90 90 0 0 1 200 118" fill="none" stroke="var(--deal)" stroke-width="14" stroke-linecap="round" pathLength="100" stroke-dasharray="0 100"/>
-        <g id="ticks" stroke="var(--faint)" stroke-width="2"></g>
-        <line id="needle" x1="110" y1="118" x2="110" y2="50" stroke="var(--amber)" stroke-width="3" stroke-linecap="round" transform="rotate(-90 110 118)"/>
-        <circle cx="110" cy="118" r="7" fill="var(--amber)"/>
-        <text id="gaugeTxt" x="110" y="162" text-anchor="middle" fill="var(--chalk)" font-family="Martian Mono, monospace" font-weight="700" font-size="30">—</text>
-      </svg>
-      <span class="lbl" id="gaugeLbl">de bonnes affaires</span>
-    </div>
-    <div class="readouts" id="readouts"></div>
-  </section>
-
-  <section style="display:flex;flex-direction:column;gap:14px" id="podiumSec">
-    <div class="sec-head"><h2>Le podium<small>Les trois annonces les plus en dessous du prix attendu pour leur âge et leurs km.</small></h2></div>
-    <div class="podium" id="podium"></div>
-  </section>
-
-  <section class="chart">
-    <div class="sec-head"><h2>Prix × kilomètres<small>Touche un point pour ouvrir l'annonce.</small></h2></div>
-    <div class="legend"><span><i style="background:var(--deal)"></i>Bonne affaire</span><span><i style="background:var(--dot)"></i>Autre annonce</span><span><i style="background:var(--amber);border-radius:2px;height:2px;width:14px;vertical-align:3px"></i>Tendance</span></div>
-    <div class="canvas-box"><canvas id="chart" aria-label="Nuage de points prix en fonction du kilométrage"></canvas></div>
-    <div id="modelNote"></div>
-  </section>
-
-  <section style="display:flex;flex-direction:column;gap:14px">
-    <div class="sec-head"><h2>Toutes les annonces</h2></div>
-    <div class="toolbar">
-      <input class="field" id="q" type="search" placeholder="Version, ville, garage…" aria-label="Filtrer">
+  <div class="stickybar" id="stickybar">
+    <nav class="views" role="tablist" aria-label="Vues">
+      <button type="button" role="tab" data-view="ann" aria-selected="true">Annonces<span class="n" id="vnAnn"></span></button>
+      <button type="button" role="tab" data-view="ana" aria-selected="false">Analyse</button>
+      <button type="button" role="tab" data-view="sold" aria-selected="false">Vendues<span class="n" id="vnSold"></span></button>
+    </nav>
+    <div class="toolbar" id="annTools">
+      <input class="field" id="q" type="search" placeholder="Version, ville, garage…" aria-label="Rechercher dans les annonces">
       <select class="field" id="order" aria-label="Trier">
         <option value="deal">Meilleures affaires</option>
         <option value="new">Arrivées récemment</option>
@@ -381,44 +452,102 @@ dialog[open] .sheet { animation: up .28s cubic-bezier(.2,.8,.2,1); }
         <option value="km">Km croissant</option>
         <option value="-year">Plus récentes</option>
         <option value="old">En ligne depuis longtemps</option>
-        <option value="dist" id="optDist" disabled>Plus proches de chez moi</option>
+        <option value="dist" id="optDist" disabled>Plus proches</option>
       </select>
-      <select class="field" id="maxDist" aria-label="Distance maximale" hidden>
-        <option value="">Toute distance</option><option value="25">≤ 25 km</option><option value="50">≤ 50 km</option><option value="100">≤ 100 km</option>
-      </select>
+      <button class="filt-btn" id="filtBtn" type="button" aria-label="Filtres"><svg><use href="#i-filter"/></svg><span class="filt-n" id="filtN" hidden></span></button>
     </div>
-    <div class="toolbar">
-      <label class="chip"><input type="checkbox" id="onlyFav">★ Favoris</label>
+  </div>
+
+  <!-- ===================== Vue : annonces -->
+  <div class="view" id="v-ann">
+    <section class="sect" id="podiumSec">
+      <div class="sec-head"><h2>Top affaires<small>Les plus en dessous du prix attendu pour leur âge, leurs km et leur équipement.</small></h2></div>
+      <div class="podium" id="podium"></div>
+    </section>
+    <section class="sect">
+      <div class="sec-head"><h2 id="gridTitle">Toutes les annonces</h2><span class="count" id="count"></span></div>
+      <div class="active" id="activeFilters"></div>
+      <div class="grid" id="grid"></div>
+      <button class="more" id="more" type="button" hidden>Voir plus</button>
+    </section>
+  </div>
+
+  <!-- ===================== Vue : analyse -->
+  <div class="view" id="v-ana" hidden>
+    <section class="cluster" aria-label="Tableau de bord">
+      <div class="gauge">
+        <svg viewBox="0 0 220 168" role="img" aria-labelledby="gaugeTxt">
+          <path d="M20 118 A90 90 0 0 1 200 118" fill="none" stroke="var(--line)" stroke-width="14" stroke-linecap="round"/>
+          <path id="gaugeArc" d="M20 118 A90 90 0 0 1 200 118" fill="none" stroke="var(--deal)" stroke-width="14" stroke-linecap="round" pathLength="100" stroke-dasharray="0 100"/>
+          <g id="ticks" stroke="var(--faint)" stroke-width="2"></g>
+          <line id="needle" x1="110" y1="118" x2="110" y2="50" stroke="var(--amber)" stroke-width="3" stroke-linecap="round" transform="rotate(-90 110 118)"/>
+          <circle cx="110" cy="118" r="7" fill="var(--amber)"/>
+          <text id="gaugeTxt" x="110" y="162" text-anchor="middle" fill="var(--chalk)" font-family="Martian Mono, monospace" font-weight="700" font-size="30">—</text>
+        </svg>
+        <span class="lbl" id="gaugeLbl">de bonnes affaires</span>
+      </div>
+      <div class="readouts" id="readouts"></div>
+    </section>
+
+    <section class="chart">
+      <div class="sec-head"><h2>Prix × kilomètres<small>Touche un point pour ouvrir l'annonce.</small></h2></div>
+      <div class="legend"><span><i style="background:var(--deal)"></i>Bonne affaire</span><span><i style="background:var(--dot)"></i>Autre annonce</span><span><i style="background:var(--amber);border-radius:2px;height:2px;width:14px;vertical-align:3px"></i>Tendance</span></div>
+      <div class="canvas-box"><canvas id="chart" aria-label="Nuage de points prix en fonction du kilométrage"></canvas></div>
+      <div id="modelNote"></div>
+    </section>
+
+    <section class="panel" id="marketSec">
+      <div class="sec-head"><h2>Le marché<small id="marketSub">Prix médian et fourchette des prix (25 % à 75 % des annonces), jour après jour.</small></h2></div>
+      <div class="canvas-box" id="marketBox" style="height:240px"><canvas id="marketChart" aria-label="Évolution du prix médian"></canvas></div>
+      <p class="empty-note" id="marketEmpty" hidden></p>
+    </section>
+  </div>
+
+  <!-- ===================== Vue : vendues -->
+  <div class="view" id="v-sold" hidden>
+    <section class="panel" id="soldSec">
+      <div class="sec-head"><h2>Vendues ou retirées<small id="soldSub"></small></h2></div>
+      <div class="sold-list" id="soldList"></div>
+      <button class="more" id="soldMore" type="button" hidden>Voir plus</button>
+    </section>
+    <p class="empty-note" id="soldEmpty" hidden>Rien pour l'instant. Les annonces qui disparaissent d'AutoScout24 entre deux passages du scraper apparaîtront ici, avec le temps qu'elles sont restées en ligne.</p>
+  </div>
+</div>
+
+<!-- Feuille : filtres -->
+<dialog id="filtDlg" aria-labelledby="filtTitle">
+  <div class="sheet">
+    <div class="sheet-top"><span class="grabber"></span><button class="close" type="button" data-close aria-label="Fermer">✕</button></div>
+    <h3 id="filtTitle">Filtres</h3>
+    <div class="chips">
       <label class="chip"><input type="checkbox" id="onlyDeals">Bonnes affaires</label>
       <label class="chip"><input type="checkbox" id="onlyNew">Nouvelles</label>
       <label class="chip"><input type="checkbox" id="onlyDrop">Prix en baisse</label>
-      <label class="chip"><input type="checkbox" id="hideSus" checked>Sans les suspectes</label>
-      <label class="chip"><input type="checkbox" id="onlySus">Voir les suspectes</label>
-      <span class="count" id="count"></span>
+      <label class="chip"><input type="checkbox" id="onlyFav">★ Favoris</label>
     </div>
-    <div class="grid" id="grid"></div>
-    <button class="more" id="more" type="button" hidden>Voir plus</button>
-  </section>
-
-  <section class="panel" id="marketSec">
-    <div class="sec-head"><h2>Le marché<small id="marketSub">Prix médian et fourchette des prix (25 % à 75 % des annonces), jour après jour.</small></h2></div>
-    <div class="canvas-box" id="marketBox" style="height:240px"><canvas id="marketChart" aria-label="Évolution du prix médian"></canvas></div>
-    <p class="empty-note" id="marketEmpty" hidden></p>
-  </section>
-
-  <section class="panel" id="soldSec">
-    <div class="sec-head"><h2>Vendues ou retirées<small id="soldSub"></small></h2></div>
-    <div class="sold-list" id="soldList"></div>
-    <button class="more" id="soldMore" type="button" hidden>Voir plus</button>
-  </section>
-</div>
+    <div class="chips">
+      <label class="chip"><input type="checkbox" id="hideSus" checked>Masquer les suspectes</label>
+      <label class="chip"><input type="checkbox" id="onlySus">Seulement les suspectes</label>
+    </div>
+    <label class="lab" id="maxDistWrap" hidden>Distance de chez moi
+      <select class="field" id="maxDist" style="font-size:16px;text-transform:none;letter-spacing:0;font-weight:400">
+        <option value="">Toute distance</option><option value="25">≤ 25 km</option><option value="50">≤ 50 km</option><option value="100">≤ 100 km</option>
+      </select>
+    </label>
+    <p id="distHint">Ajoute ton code postal dans les réglages ⚙ pour filtrer par distance.</p>
+    <div class="actions">
+      <button class="btn" type="button" id="filtReset">Réinitialiser</button>
+      <button class="btn go" type="button" id="filtApply" data-close>Voir les annonces</button>
+    </div>
+  </div>
+</dialog>
 
 <div class="tray" id="tray" hidden>
   <button class="go" id="cmpGo" type="button">Comparer</button>
   <button id="cmpClear" type="button" aria-label="Vider la comparaison">✕</button>
 </div>
 
-<button class="fab" id="fab" type="button"><svg><use href="#i-search"/></svg>Nouvelle recherche</button>
+<button class="fab" id="fab" type="button" aria-label="Nouvelle recherche"><svg><use href="#i-search"/></svg>Nouvelle recherche</button>
 
 <div class="job" id="job" hidden role="status" aria-live="polite">
   <div class="row"><strong id="jobTitle">Recherche en cours</strong><button class="x" id="jobClose" type="button">Masquer</button></div>
@@ -669,8 +798,72 @@ async function load(slug) {
   $('#heroActions').hidden = !!d.fav;
   disarmDelete();
   if (home) await loadZip();
-  renderCluster(); renderPodium(); drawChart(); renderModel(); drawGrid(true); renderMarket(); renderSold();
+  renderQuick(); renderCluster(); renderPodium(); drawChart(); renderModel(); drawGrid(true); renderMarket(); renderSold();
+  $('#vnAnn').textContent = fmt(cars.length);
+  const nSold = (current?.sold || []).filter(x => !x.suspicious).length;
+  $('#vnSold').textContent = nSold ? fmt(nSold) : '';
+  document.querySelector('.views [data-view="sold"]').hidden = !!d.fav;
+  document.querySelector('.views [data-view="ana"]').hidden = !!d.fav;
+  if (d.fav && view !== 'ann') setView('ann');
+  else resizeCharts();
 }
+
+/* ============================================================ vues */
+let view = store.get('view') || 'ann';
+function resizeCharts() { requestAnimationFrame(() => { chart?.resize(); marketChart?.resize(); }); }
+function setView(v) {
+  view = v; store.set('view', v);
+  document.querySelectorAll('.views [data-view]').forEach(b => b.setAttribute('aria-selected', b.dataset.view === v));
+  $('#v-ann').hidden = v !== 'ann'; $('#v-ana').hidden = v !== 'ana'; $('#v-sold').hidden = v !== 'sold';
+  $('#annTools').hidden = v !== 'ann';
+  resizeCharts();
+  const bar = $('#stickybar'), top = bar.getBoundingClientRect().top;
+  if (top <= 1) window.scrollTo({ top: window.scrollY + top - parseFloat(getComputedStyle(bar).top || 0), behavior: 'auto' });
+}
+document.querySelector('.views').addEventListener('click', e => { const b = e.target.closest('[data-view]'); if (b) setView(b.dataset.view); });
+setView(view);
+
+/* ============================================================ chiffres clés (raccourcis de filtre) */
+function renderQuick() {
+  const ok = cars.filter(c => !c.suspicious), prices = ok.map(c => c.price).filter(Boolean);
+  const deals = cars.filter(isDeal).length, nNew = cars.filter(c => c.is_new).length, nDrop = cars.filter(c => c.price_drop).length;
+  const q = (id, v, l, cls, filter) => `<button type="button" class="${cls}" ${filter ? `data-q="${filter}" aria-pressed="${$('#' + filter).checked}"` : 'disabled'}><b>${v}</b><span>${l}</span></button>`;
+  $('#quick').innerHTML =
+    q('m', prices.length ? fmt(median(prices)) + ' €' : '—', 'prix médian', '', null) +
+    q('d', fmt(deals), 'affaires', deals ? 'good' : '', 'onlyDeals') +
+    q('n', fmt(nNew), 'nouvelles', nNew ? 'hot' : '', 'onlyNew') +
+    q('b', fmt(nDrop), 'baisses', nDrop ? 'good' : '', 'onlyDrop');
+}
+$('#quick').addEventListener('click', e => {
+  const b = e.target.closest('[data-q]'); if (!b) return;
+  const box = $('#' + b.dataset.q); box.checked = !box.checked;
+  setView('ann'); shown = 24; drawGrid(); renderQuick();
+});
+
+/* ============================================================ filtres */
+const FILTER_LABELS = { onlyDeals: 'Bonnes affaires', onlyNew: 'Nouvelles', onlyDrop: 'Prix en baisse', onlyFav: '★ Favoris', onlySus: 'Suspectes seulement' };
+function activeFilters() {
+  const list = Object.keys(FILTER_LABELS).filter(id => $('#' + id).checked).map(id => [id, FILTER_LABELS[id]]);
+  if (!$('#hideSus').checked && !$('#onlySus').checked) list.push(['hideSus', 'Suspectes incluses']);
+  if ($('#maxDist').value) list.push(['maxDist', `≤ ${$('#maxDist').value} km`]);
+  return list;
+}
+function renderFilterState() {
+  const act = activeFilters();
+  $('#filtN').hidden = !act.length; $('#filtN').textContent = act.length;
+  $('#activeFilters').innerHTML = act.map(([id, l]) => `<button type="button" data-unf="${id}">${esc(l)}</button>`).join('');
+}
+$('#activeFilters').addEventListener('click', e => {
+  const b = e.target.closest('[data-unf]'); if (!b) return;
+  const id = b.dataset.unf;
+  if (id === 'maxDist') $('#maxDist').value = ''; else if (id === 'hideSus') $('#hideSus').checked = true; else $('#' + id).checked = false;
+  shown = 24; drawGrid(); renderQuick();
+});
+$('#filtBtn').onclick = () => $('#filtDlg').showModal();
+$('#filtReset').onclick = () => {
+  ['onlyDeals', 'onlyNew', 'onlyDrop', 'onlyFav', 'onlySus'].forEach(id => { $('#' + id).checked = false; });
+  $('#hideSus').checked = true; $('#maxDist').value = ''; shown = 24; drawGrid(); renderQuick();
+};
 
 /* ============================================================ tableau de bord */
 (function ticks() {
@@ -734,7 +927,7 @@ function card(c, i, opts = {}) {
 
 function renderPodium() {
   const top = cars.filter(isDeal).filter(c => c.delta != null).sort((a, b) => a.delta - b.delta).slice(0, 3);
-  $('#podiumSec').hidden = !top.length;
+  $('#podiumSec').hidden = !top.length || !!current?.fav;
   $('#podium').innerHTML = top.map((c, i) => card(c, i, { big: true, rank: i + 1, reveal: !reduced })).join('');
 }
 
@@ -749,7 +942,12 @@ function drawGrid(reveal = false) {
                 '-price': c => -(c.price ?? 0), km: c => c.km ?? Infinity, '-year': c => -(c.year ?? 0),
                 old: c => -(days(c) ?? 0), dist: c => dist(c) ?? Infinity }[order];
   list.sort((a, b) => key(a) - key(b));
-  $('#count').textContent = `${fmt(list.length)} / ${fmt(cars.length)}`;
+  $('#count').textContent = list.length === cars.length ? `${fmt(cars.length)} annonces` : `${fmt(list.length)} sur ${fmt(cars.length)}`;
+  renderFilterState();
+  const filtering = !!q || activeFilters().length > 0;
+  $('#podiumSec').hidden = filtering || !$('#podium').children.length || current?.fav;
+  $('#gridTitle').textContent = current?.fav ? 'Mes favoris' : filtering ? 'Résultats' : 'Toutes les annonces';
+  $('#filtApply').textContent = `Voir ${fmt(list.length)} annonce${list.length > 1 ? 's' : ''}`;
   if (!list.length) {
     $('#grid').innerHTML = `<div class="empty">${cars.length ? 'Aucune annonce ne correspond à ces filtres.' : 'Aucune annonce pour cette recherche pour le moment.'}</div>`;
     $('#more').hidden = true; return;
@@ -758,7 +956,7 @@ function drawGrid(reveal = false) {
   $('#more').hidden = list.length <= shown;
   $('#more').textContent = `Voir plus · ${fmt(list.length - shown)} restantes`;
 }
-FILTERS.forEach(s => ['input', 'change'].forEach(ev => $(s).addEventListener(ev, () => { shown = 24; drawGrid(); })));
+FILTERS.forEach(s => ['input', 'change'].forEach(ev => $(s).addEventListener(ev, () => { shown = 24; drawGrid(); renderQuick(); })));
 $('#onlySus').addEventListener('change', () => { if ($('#onlySus').checked) { $('#hideSus').checked = false; } drawGrid(); });
 $('#hideSus').addEventListener('change', () => { if ($('#hideSus').checked) { $('#onlySus').checked = false; } drawGrid(); });
 $('#more').onclick = () => { shown += 24; drawGrid(); };
@@ -867,6 +1065,7 @@ let soldShown = 8;
 function renderSold() {
   const sold = (current?.sold || []).filter(s => !s.suspicious);
   $('#soldSec').hidden = !!current?.fav || !sold.length;
+  $('#soldEmpty').hidden = !!sold.length;
   if (!sold.length) return;
   const dd = sold.map(s => s.days_online).filter(v => v != null);
   const fast = sold.filter(s => (s.delta ?? 0) <= -0.10).map(s => s.days_online).filter(v => v != null);
@@ -882,7 +1081,7 @@ $('#soldMore').onclick = () => { soldShown += 12; renderSold(); };
 
 /* ============================================================ réglages */
 function refreshHome() {
-  $('#optDist').disabled = !home; $('#maxDist').hidden = !home;
+  $('#optDist').disabled = !home; $('#maxDistWrap').hidden = !home; $('#distHint').hidden = !!home;
   if (!home && ($('#order').value === 'dist')) $('#order').value = 'deal';
   if (!home) $('#maxDist').value = '';
 }
@@ -1054,7 +1253,7 @@ $('#delBtn').onclick = async () => {
   if (needKey('delete')) return;
   const btn = $('#delBtn');
   if (!btn.classList.contains('armed')) {
-    btn.classList.add('armed'); btn.querySelector('span').textContent = 'Toucher encore pour supprimer';
+    btn.classList.add('armed'); btn.querySelector('span').textContent = 'Confirmer ?';
     armTimer = setTimeout(disarmDelete, 4000); return;
   }
   disarmDelete();

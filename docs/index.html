@@ -1,0 +1,253 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#f3f5f8" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0d1117" media="(prefers-color-scheme: dark)">
+<title>AutoScout Analyseur</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght,wdth@500..800,100..125&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@500;600&display=swap">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+  :root {
+    --bg: #f3f5f8; --surface: #ffffff; --surface-2: #e9edf3; --line: #d5dce6;
+    --ink: #141b26; --muted: #5c6878; --accent: #1d4fd8; --accent-ink: #ffffff;
+    --deal: #0f8a5a; --deal-bg: #e2f5ec; --new: #b4580b; --new-bg: #fdeedd; --err: #c4322b;
+    --dot: rgba(29, 79, 216, .55); --dot-deal: rgba(15, 138, 90, .85); --trend: #5c6878;
+    --f-display: "Archivo", "Arial Narrow", system-ui, sans-serif;
+    --f-body: "IBM Plex Sans", system-ui, -apple-system, sans-serif;
+    --f-mono: "IBM Plex Mono", ui-monospace, Menlo, monospace;
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme: dark) { :root {
+    --bg: #0d1117; --surface: #151b24; --surface-2: #1c2430; --line: #2a3442;
+    --ink: #e7ecf3; --muted: #93a0b2; --accent: #7aa2ff; --accent-ink: #0b1220;
+    --deal: #4cd69a; --deal-bg: #12301f; --new: #f0a35a; --new-bg: #3a2512; --err: #ff7b72;
+    --dot: rgba(122, 162, 255, .6); --dot-deal: rgba(76, 214, 154, .9); --trend: #93a0b2; color-scheme: dark } }
+
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.5 var(--f-body);
+         padding: env(safe-area-inset-top, 0px) max(14px, env(safe-area-inset-right, 0px)) env(safe-area-inset-bottom, 0px) max(14px, env(safe-area-inset-left, 0px)); }
+  .wrap { max-width: 1240px; margin: 0 auto; padding-block: 20px 48px; display: flex; flex-direction: column; gap: 18px; }
+
+  header { display: flex; flex-direction: column; gap: 4px; }
+  h1 { margin: 0; font: 800 clamp(26px, 6vw, 40px)/1.05 var(--f-display); font-stretch: 112%; letter-spacing: -.02em; }
+  h1 .odo { font-family: var(--f-mono); font-weight: 600; font-size: .45em; letter-spacing: .08em; background: var(--ink); color: var(--bg);
+            padding: 3px 7px; border-radius: 4px; vertical-align: middle; margin-left: 4px; }
+  .meta { color: var(--muted); font-size: 13px; display: flex; flex-wrap: wrap; gap: 4px 12px; }
+  .meta a { color: var(--accent); }
+  .err { color: var(--err); font-size: 13px; }
+
+  .tabs { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 2px; scrollbar-width: none; }
+  .tabs button { flex: none; font: 600 14px var(--f-body); border: 1px solid var(--line); background: var(--surface); color: var(--ink);
+                 border-radius: 99px; padding: 7px 14px; cursor: pointer; }
+  .tabs button[aria-pressed="true"] { background: var(--ink); color: var(--bg); border-color: var(--ink); }
+  .tabs .n { font-family: var(--f-mono); opacity: .65; margin-left: 4px; }
+
+  .dash { display: grid; grid-template-columns: minmax(0, 320px) minmax(0, 1fr); gap: 14px; }
+  @media (max-width: 860px) { .dash { grid-template-columns: 1fr; } }
+  .stats { display: grid; grid-template-columns: 1fr 1fr; gap: 1px; background: var(--line); border: 1px solid var(--line); border-radius: 14px; overflow: hidden; align-content: start; }
+  .stat { background: var(--surface); padding: 12px 14px; display: flex; flex-direction: column; gap: 2px; }
+  .stat b { font: 600 21px var(--f-mono); letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
+  .stat span { font-size: 11px; text-transform: uppercase; letter-spacing: .07em; color: var(--muted); }
+  .stat.wide { grid-column: 1 / -1; }
+  .chart { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 14px; display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+  .chart h3 { margin: 0; font: 700 15px var(--f-display); font-stretch: 105%; }
+  .chart p { font-size: 12px; color: var(--muted); margin: 0; }
+  .canvas-box { position: relative; height: 280px; }
+
+  .toolbar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+  .toolbar input, .toolbar select { font: 15px var(--f-body); background: var(--surface); color: var(--ink); border: 1px solid var(--line); border-radius: 9px; padding: 9px 11px; }
+  .toolbar input[type=search] { flex: 1 1 200px; min-width: 0; }
+  .chip { display: inline-flex; align-items: center; gap: 6px; font-size: 14px; background: var(--surface); border: 1px solid var(--line); border-radius: 9px; padding: 8px 11px; cursor: pointer; user-select: none; }
+  .chip input { margin: 0; accent-color: var(--accent); }
+  .count { font-size: 13px; color: var(--muted); }
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 290px), 1fr)); gap: 12px; }
+  .card { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; overflow: hidden; display: flex; flex-direction: column;
+          color: inherit; text-decoration: none; transition: border-color .15s, transform .15s; min-width: 0; }
+  .card:hover { border-color: var(--accent); transform: translateY(-2px); }
+  .photo { aspect-ratio: 4 / 3; max-width: 100%; background: var(--surface-2); position: relative; overflow: hidden; }
+  .photo img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .photo .badges { position: absolute; left: 8px; top: 8px; display: flex; gap: 6px; flex-wrap: wrap; }
+  .badge { font: 600 11px var(--f-mono); letter-spacing: .04em; border-radius: 6px; padding: 3px 7px; }
+  .badge.new { background: var(--new-bg); color: var(--new); }
+  .badge.drop { background: var(--deal-bg); color: var(--deal); }
+  .body { padding: 12px 14px 14px; display: flex; flex-direction: column; gap: 7px; }
+  .top { display: flex; justify-content: space-between; gap: 10px; align-items: baseline; }
+  .name { font: 700 16px var(--f-display); font-stretch: 105%; min-width: 0; overflow-wrap: anywhere; }
+  .price { font: 600 18px var(--f-mono); color: var(--accent); white-space: nowrap; font-variant-numeric: tabular-nums; }
+  .ver { color: var(--muted); font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .row { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+  .odometer { font: 600 13px var(--f-mono); background: var(--ink); color: var(--bg); border-radius: 4px; padding: 2px 7px; letter-spacing: .06em; font-variant-numeric: tabular-nums; }
+  .tag { font-size: 12px; color: var(--muted); background: var(--surface-2); border-radius: 6px; padding: 2px 8px; }
+  .delta { font: 600 12px var(--f-mono); border-radius: 6px; padding: 2px 8px; }
+  .delta.good { color: var(--deal); background: var(--deal-bg); }
+  .delta.high { color: var(--muted); background: var(--surface-2); }
+  .empty { grid-column: 1 / -1; text-align: center; color: var(--muted); padding: 40px 12px; }
+  .more { align-self: center; font: 600 14px var(--f-body); border: 1px solid var(--line); background: var(--surface); color: var(--ink); border-radius: 9px; padding: 10px 18px; cursor: pointer; }
+
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>AutoScout Analyseur <span class="odo">€/KM</span></h1>
+    <div class="meta" id="meta">Chargement…</div>
+    <div class="err" id="err" hidden></div>
+  </header>
+
+  <nav class="tabs" id="tabs" aria-label="Recherches"></nav>
+
+  <section class="dash">
+    <div class="stats" id="stats"></div>
+    <div class="chart">
+      <h3>Prix selon le kilométrage</h3>
+      <p>Les points verts sont plus de 10 % sous la tendance. Touche un point pour ouvrir l'annonce.</p>
+      <div class="canvas-box"><canvas id="chart" aria-label="Nuage de points prix en fonction du kilométrage"></canvas></div>
+    </div>
+  </section>
+
+  <section style="display:flex;flex-direction:column;gap:12px">
+    <div class="toolbar">
+      <input id="q" type="search" placeholder="Filtrer : version, ville, garage…">
+      <select id="order" aria-label="Trier">
+        <option value="deal">Meilleures affaires</option>
+        <option value="new">Plus récentes sur le site</option>
+        <option value="price">Prix croissant</option>
+        <option value="-price">Prix décroissant</option>
+        <option value="km">Km croissant</option>
+        <option value="-year">Année récente</option>
+      </select>
+      <label class="chip"><input type="checkbox" id="onlyNew"> Nouvelles</label>
+      <label class="chip"><input type="checkbox" id="onlyDeals"> Bonnes affaires</label>
+      <span class="count" id="count"></span>
+    </div>
+    <div class="grid" id="grid"></div>
+    <button class="more" id="more" hidden>Voir plus</button>
+  </section>
+</div>
+
+<script>
+const $ = s => document.querySelector(s);
+const nf = new Intl.NumberFormat('fr-BE');
+const fmt = n => n == null || !isFinite(n) ? '—' : nf.format(Math.round(n));
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const median = a => { if (!a.length) return null; const s = [...a].sort((x, y) => x - y), m = s.length >> 1; return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2; };
+const ago = iso => { if (!iso) return '?'; const m = (Date.now() - new Date(iso)) / 60000;
+  return m < 60 ? `il y a ${Math.max(1, Math.round(m))} min` : m < 1440 ? `il y a ${Math.round(m / 60)} h` : `il y a ${Math.round(m / 1440)} j`; };
+const LABELS = { 'top-price': ['super prix', 'good'], 'good-price': ['bon prix', 'good'], 'fair-price': ['prix correct', 'high'],
+                 'increased-price': ['prix élevé', 'high'], 'high-price': ['prix élevé', 'high'] };
+const isDeal = c => (c.delta != null && c.delta <= -0.10) || c.price_label === 'top-price' || c.price_label === 'good-price';
+
+let index = [], current = null, cars = [], fit = null, chart = null, shown = 30;
+
+async function getJSON(url) {
+  const r = await fetch(url + '?t=' + Date.now(), { cache: 'no-store' });
+  if (!r.ok) throw new Error(`${url} : HTTP ${r.status}`);
+  return r.json();
+}
+
+async function boot() {
+  try { index = (await getJSON('data/index.json')).searches || []; }
+  catch { $('#meta').textContent = 'Pas encore de résultats. Lance le workflow « Scraper AutoScout24 » dans l\'onglet Actions du repo.'; return; }
+  if (!index.length) { $('#meta').textContent = 'Pas encore de résultats.'; return; }
+  const wanted = location.hash.slice(1);
+  $('#tabs').innerHTML = index.map(s => `<button data-slug="${esc(s.slug)}">${esc(s.label)}<span class="n">${s.count}</span></button>`).join('');
+  $('#tabs').onclick = e => { const b = e.target.closest('button'); if (b) load(b.dataset.slug); };
+  load(index.some(s => s.slug === wanted) ? wanted : index[0].slug);
+}
+
+async function load(slug) {
+  document.querySelectorAll('#tabs button').forEach(b => b.setAttribute('aria-pressed', b.dataset.slug === slug));
+  history.replaceState(null, '', '#' + slug);
+  let d;
+  try { d = await getJSON(`data/${slug}.json`); } catch (e) { $('#err').hidden = false; $('#err').textContent = e.message; return; }
+  current = d; cars = d.listings || []; shown = 30;
+  const fitPts = cars.filter(c => c.price && c.km != null);
+  fit = null;
+  if (fitPts.length >= 5) {
+    const n = fitPts.length, mx = fitPts.reduce((s, c) => s + c.km, 0) / n, my = fitPts.reduce((s, c) => s + c.price, 0) / n;
+    let num = 0, den = 0; for (const c of fitPts) { num += (c.km - mx) * (c.price - my); den += (c.km - mx) ** 2; }
+    const b = den ? num / den : 0; fit = { b, predict: km => my - b * mx + b * km };
+  }
+  const covered = d.total_announced ? ` sur ${fmt(d.total_announced)} annoncées` : '';
+  $('#meta').innerHTML = `<span>Mis à jour ${ago(d.updated)}</span><span>${cars.length} annonces${covered}</span>` +
+    (d.url ? `<a href="${esc(d.url)}" target="_blank" rel="noopener">Voir sur AutoScout24</a>` : '');
+  $('#err').hidden = !d.last_error;
+  $('#err').textContent = d.last_error ? `Dernier passage ${ago(d.last_attempt)} : ${d.last_error}` : '';
+  renderStats(); drawChart(); drawGrid();
+}
+
+function renderStats() {
+  const prices = cars.map(c => c.price).filter(Boolean), kms = cars.map(c => c.km).filter(v => v != null), years = cars.map(c => c.year).filter(Boolean);
+  const stat = (v, l, cls = '') => `<div class="stat ${cls}"><b>${v}</b><span>${l}</span></div>`;
+  $('#stats').innerHTML =
+    stat(cars.length, 'annonces') +
+    stat(cars.filter(c => c.is_new).length, 'nouvelles depuis le dernier passage') +
+    stat(prices.length ? fmt(median(prices)) + ' €' : '—', 'prix médian') +
+    stat(cars.filter(isDeal).length, 'bonnes affaires') +
+    stat(kms.length ? fmt(median(kms)) : '—', 'km médian') +
+    stat(years.length ? Math.round(median(years)) : '—', 'année médiane') +
+    stat(fit ? '−' + fmt(Math.abs(fit.b) * 10000) + ' €' : '—', 'décote moyenne par 10 000 km', 'wide');
+}
+
+const cssVar = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+function drawChart() {
+  if (!window.Chart) return;
+  const pts = cars.filter(c => c.price && c.km != null).map(c => ({ x: c.km, y: c.price, c }));
+  const xs = pts.map(p => p.x), lo = Math.min(...xs), hi = Math.max(...xs), ink = cssVar('--muted'), grid = cssVar('--line');
+  const ds = [{ type: 'scatter', data: pts, pointRadius: 4, pointHoverRadius: 7, borderWidth: 0,
+                backgroundColor: pts.map(p => (p.c.delta != null && p.c.delta <= -0.10) ? cssVar('--dot-deal') : cssVar('--dot')) }];
+  if (fit && pts.length) ds.push({ type: 'line', data: [{ x: lo, y: fit.predict(lo) }, { x: hi, y: fit.predict(hi) }],
+    borderColor: cssVar('--trend'), borderDash: [6, 5], borderWidth: 1.5, pointRadius: 0 });
+  const axis = t => ({ title: { display: true, text: t, color: ink }, ticks: { color: ink, callback: v => fmt(v), font: { family: 'IBM Plex Mono', size: 11 } },
+                       grid: { color: grid }, border: { color: grid } });
+  const opts = { maintainAspectRatio: false, animation: false, scales: { x: axis('Kilométrage'), y: axis('Prix (€)') },
+    plugins: { legend: { display: false }, tooltip: { callbacks: { label: ctx => { const c = ctx.raw.c; return c ? `${c.year ?? ''} · ${fmt(c.price)} € · ${fmt(c.km)} km` : 'Tendance'; } } } },
+    onClick: (_, els) => { const el = els[0]; const c = el && chart.data.datasets[el.datasetIndex].data[el.index].c; if (c?.url) window.open(c.url, '_blank', 'noopener'); } };
+  if (chart) { chart.data.datasets = ds; chart.options = opts; chart.update('none'); }
+  else chart = new Chart($('#chart'), { data: { datasets: ds }, options: opts });
+}
+matchMedia('(prefers-color-scheme: dark)').addEventListener('change', drawChart);
+
+function drawGrid() {
+  const q = $('#q').value.trim().toLowerCase(), order = $('#order').value;
+  let list = cars.filter(c => (!q || [c.make, c.model, c.version, c.city, c.zip, c.fuel, c.gear, c.first_reg, c.seller_name].join(' ').toLowerCase().includes(q))
+    && (!$('#onlyNew').checked || c.is_new) && (!$('#onlyDeals').checked || isDeal(c)));
+  const key = { deal: c => c.delta ?? 9, new: c => -new Date(c.first_seen || 0), price: c => c.price ?? Infinity, '-price': c => -(c.price ?? 0),
+                km: c => c.km ?? Infinity, '-year': c => -(c.year ?? 0) }[order];
+  list.sort((a, b) => key(a) - key(b));
+  $('#count').textContent = `${list.length} affichée${list.length > 1 ? 's' : ''}`;
+  if (!list.length) { $('#grid').innerHTML = `<div class="empty">${cars.length ? 'Aucune annonce ne correspond aux filtres.' : 'Aucune annonce pour cette recherche.'}</div>`; $('#more').hidden = true; return; }
+
+  $('#grid').innerHTML = list.slice(0, shown).map(c => {
+    const d = c.delta, lab = LABELS[c.price_label];
+    const dTag = d == null ? '' : d < -0.03 ? `<span class="delta good">${Math.round(d * 100)} % vs tendance</span>` : d > 0.03 ? `<span class="delta high">+${Math.round(d * 100)} %</span>` : '';
+    const asTag = lab ? `<span class="delta ${lab[1]}">AS24 : ${lab[0]}</span>` : '';
+    const tag = v => v ? `<span class="tag">${esc(v)}</span>` : '';
+    const img = c.image ? c.image.replace(/\/\d+x\d+\.webp$/, '/480x360.webp') : '';
+    return `<a class="card" href="${esc(c.url)}" target="_blank" rel="noopener">
+      <div class="photo">${img ? `<img src="${esc(img)}" alt="" loading="lazy" onerror="if(this.src!=='${esc(c.image)}')this.src='${esc(c.image)}'">` : ''}
+        <div class="badges">${c.is_new ? '<span class="badge new">NOUVEAU</span>' : ''}${c.price_drop ? `<span class="badge drop">−${fmt(c.price_drop)} €</span>` : ''}</div></div>
+      <div class="body">
+        <div class="top"><span class="name">${esc(c.make)} ${esc(c.model)}</span><span class="price">${fmt(c.price)} €</span></div>
+        <div class="ver">${esc(c.version) || '&nbsp;'}</div>
+        <div class="row"><span class="odometer">${c.km != null ? String(c.km).padStart(6, '0') : '------'} km</span>${dTag}${asTag}</div>
+        <div class="row">${tag(c.first_reg)}${tag(c.fuel)}${tag(c.gear)}${tag(c.power)}</div>
+        <div class="row">${tag([c.zip, c.city].filter(Boolean).join(' '))}${tag(c.seller_name)}</div>
+      </div></a>`;
+  }).join('');
+  $('#more').hidden = list.length <= shown;
+  $('#more').textContent = `Voir plus (${list.length - shown})`;
+}
+['input', 'change'].forEach(ev => ['#q', '#order', '#onlyNew', '#onlyDeals'].forEach(s => $(s).addEventListener(ev, () => { shown = 30; drawGrid(); })));
+$('#more').onclick = () => { shown += 30; drawGrid(); };
+boot();
+</script>
+</body>
+</html>

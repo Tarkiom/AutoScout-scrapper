@@ -1,0 +1,96 @@
+name: Scraper AutoScout24
+
+on:
+  # Lancement manuel depuis l'onglet Actions (ou l'app GitHub)
+  workflow_dispatch:
+    inputs:
+      make:
+        description: "Marque (ex : volkswagen, mercedes-benz). Vide = recherches de config.json"
+        required: false
+      model:
+        description: "Modèle (ex : polo, golf, classe-a)"
+        required: false
+      price_to:
+        description: "Prix max (€)"
+        required: false
+      km_to:
+        description: "Km max"
+        required: false
+      year_from:
+        description: "Année min"
+        required: false
+      fuel:
+        description: "Carburant : B essence, D diesel, E électrique, 2 hybride"
+        required: false
+      zip_radius:
+        description: "Code postal et rayon en km (ex : 6110 50)"
+        required: false
+      max_pages:
+        description: "Pages max (20 annonces par page)"
+        required: false
+        default: "35"
+  # Automatique : toutes les 6 heures, sur les recherches de config.json
+  schedule:
+    - cron: "17 */6 * * *"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: scrape
+  cancel-in-progress: false
+
+jobs:
+  scrape:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - run: pip install -r requirements.txt
+
+      - name: Scraper
+        env:
+          DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
+          IN_MAKE: ${{ inputs.make }}
+          IN_MODEL: ${{ inputs.model }}
+          IN_PRICE_TO: ${{ inputs.price_to }}
+          IN_KM_TO: ${{ inputs.km_to }}
+          IN_YEAR_FROM: ${{ inputs.year_from }}
+          IN_FUEL: ${{ inputs.fuel }}
+          IN_ZIP_RADIUS: ${{ inputs.zip_radius }}
+          IN_MAX_PAGES: ${{ inputs.max_pages }}
+        run: |
+          args=()
+          [ -n "$IN_MAKE" ]      && args+=(--make "$IN_MAKE")
+          [ -n "$IN_MODEL" ]     && args+=(--model "$IN_MODEL")
+          [ -n "$IN_PRICE_TO" ]  && args+=(--price-to "$IN_PRICE_TO")
+          [ -n "$IN_KM_TO" ]     && args+=(--km-to "$IN_KM_TO")
+          [ -n "$IN_YEAR_FROM" ] && args+=(--year-from "$IN_YEAR_FROM")
+          [ -n "$IN_FUEL" ]      && args+=(--fuel "$IN_FUEL")
+          if [ -n "$IN_ZIP_RADIUS" ]; then
+            read -r zip radius <<< "$IN_ZIP_RADIUS"
+            args+=(--zip "$zip")
+            [ -n "$radius" ] && args+=(--radius "$radius")
+          fi
+          [ -n "$IN_MAX_PAGES" ] && args+=(--max-pages "$IN_MAX_PAGES")
+          python scrape.py "${args[@]}"
+
+      - name: Enregistrer les résultats
+        if: always()
+        run: |
+          git config user.name "autoscout-bot"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add docs/data
+          if git diff --cached --quiet; then
+            echo "Rien de nouveau."
+          else
+            git commit -m "Résultats du $(date -u +'%Y-%m-%d %H:%M') UTC"
+            git pull --rebase --autostash origin "${GITHUB_REF_NAME}" || true
+            git push
+          fi

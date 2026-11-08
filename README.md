@@ -1,0 +1,42 @@
+# AutoScout Scraper
+
+Scrape les annonces AutoScout24 avec GitHub Actions et publie les résultats sur une page GitHub Pages : stats, nuage prix/km, bonnes affaires, nouvelles annonces et baisses de prix.
+
+## Mise en route (une seule fois)
+1. **Settings → Pages** : Source = *Deploy from a branch*, branche `main`, dossier `/docs`, puis **Save**.
+   La page sera sur `https://tarkiom.github.io/AutoScout-scrapper/`
+2. **Settings → Actions → General → Workflow permissions** : coche *Read and write permissions*, puis **Save**.
+3. *(Optionnel)* Alertes Discord : **Settings → Secrets and variables → Actions → New repository secret**,
+   nom `DISCORD_WEBHOOK`, valeur = l'URL du webhook de ton salon.
+
+## Lancer un scraping
+- **À la main** : onglet **Actions** → *Scraper AutoScout24* → **Run workflow**.
+  Remplis marque et modèle (slugs AutoScout24 : `volkswagen`, `mercedes-benz`, `classe-a`…) et les filtres voulus.
+  Laisse marque et modèle vides pour lancer les recherches de `config.json`.
+- **Automatique** : toutes les 6 h sur les recherches de `config.json`. Pour en ajouter une, édite ce fichier :
+  ```json
+  { "name": "Golf diesel", "make": "volkswagen", "model": "golf", "fuel": "D", "price_to": 15000, "km_to": 150000, "zip": "6110", "radius": 50 }
+  ```
+  Filtres possibles : `country` (B, D, F, NL, L…), `price_from`, `price_to`, `year_from`, `year_to`, `km_from`, `km_to`,
+  `fuel` (B essence, D diesel, E électrique, 2 hybride, L GPL, C CNG), `gear` (M, A), `zip` + `radius`,
+  `sort` (standard, prix_asc, prix_desc, km_asc, annee_desc, recent).
+
+Chaque run :
+- parcourt toutes les pages (20 annonces par page, `max_pages` dans `config.json`) ;
+- marque les annonces **nouvelles** depuis le passage précédent et les **baisses de prix** ;
+- calcule l'écart de chaque annonce par rapport à la tendance prix/km et reprend l'évaluation d'AutoScout24 (« bon prix »…) ;
+- envoie les nouvelles bonnes affaires sur Discord (si le secret est configuré) ;
+- commit le résultat dans `docs/data/`, et la page se met à jour en 1 à 2 min.
+
+## En local
+```
+pip install -r requirements.txt
+python scrape.py --make volkswagen --model polo --price-to 15000
+```
+Ouvre ensuite `docs/index.html` via un petit serveur (`python -m http.server -d docs`).
+
+## Si ça bloque
+- **Erreur 403 dans les logs** : AutoScout24 bloque les IP de GitHub. Augmente `delay_seconds`, réduis `max_pages` ou passe par un proxy.
+- **0 annonce** : vérifie les slugs marque/modèle en les copiant depuis l'URL d'AutoScout24.
+
+Usage perso et à volume raisonnable : les CGU d'AutoScout24 interdisent le scraping automatisé.

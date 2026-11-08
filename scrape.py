@@ -69,8 +69,8 @@ def search_label(s: dict) -> str:
 MIN_PRICE = 1500          # en dessous : épave, pièces ou arnaque -> exclu du calcul
 RED_FLAGS = re.compile(
     r"export|marchand|n[ée]gociant|pi[eè]ces|panne|accident|sinistr|d[ée]fect|ne (d[ée]marre|roule)|"
-    r"probl[eè]me|moteur hs|hs\b|bo[iî]te hs|[ée]pave|pour bricoleur|sans ct|non roulant|r[ée]paration|"
-    r"sans contr[ôo]le|feuille rose|bloqu[ée]|ne passe pas|[àa] r[ée]viser|voyant",
+    r"probl[eè]me|moteur hs|hs\b|bo[iî]te hs|[ée]pave|pour bricoleur|non roulant|r[ée]paration|"
+    r"bloqu[ée]|[àa] r[ée]viser|voyant",
     re.I)
 DEAL_THRESHOLD = -0.15    # 15 % sous le prix attendu
 TOO_GOOD = -0.50          # plus de 50 % sous le prix attendu : trop beau pour être vrai

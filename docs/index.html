@@ -83,6 +83,11 @@ a { color: inherit; }
 .hero h1 em { font-style: normal; color: var(--amber); }
 .hero .meta { display: flex; flex-wrap: wrap; gap: 6px 16px; color: var(--dim); font-size: 13px; }
 .hero .meta a { color: var(--chalk); text-underline-offset: 3px; }
+.hero-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.ghost { display: inline-flex; align-items: center; gap: 7px; border: 1px solid var(--line); background: var(--panel); border-radius: 10px; padding: 8px 13px; cursor: pointer; font-weight: 600; font-size: 14px; }
+.ghost svg { width: 16px; height: 16px; }
+.ghost.danger { color: var(--warn); }
+.ghost.danger.armed { background: var(--warn); color: #2b0904; border-color: var(--warn); }
 .alert { font-size: 13px; color: var(--warn); background: var(--warn-bg); border-radius: 10px; padding: 8px 12px; }
 
 /* ---------- tableau de bord ---------- */
@@ -244,6 +249,8 @@ dialog[open] .sheet { animation: up .28s cubic-bezier(.2,.8,.2,1); }
     <circle cx="4.2" cy="16.5" r="1.3"/><circle cx="3" cy="12" r="1.3"/><circle cx="4.2" cy="7.5" r="1.3"/><circle cx="7.5" cy="4.2" r="1.3"/></g></symbol>
   <symbol id="i-key" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="7.5" cy="15.5" r="4.5"/><path d="M10.7 12.3 20 3m-3 3 3 3m-6 0 2 2"/></g></symbol>
   <symbol id="i-search" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m20 20-4.8-4.8"/></g></symbol>
+  <symbol id="i-edit" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h4L19 9l-4-4L4 16v4Z"/><path d="m13.5 6.5 4 4"/></g></symbol>
+  <symbol id="i-trash" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></g></symbol>
   <symbol id="i-eye" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/></g></symbol>
 </svg>
 
@@ -261,6 +268,10 @@ dialog[open] .sheet { animation: up .28s cubic-bezier(.2,.8,.2,1); }
   <section class="hero">
     <h1 id="heroTitle">Chargement</h1>
     <div class="meta" id="meta"></div>
+    <div class="hero-actions" id="heroActions" hidden>
+      <button class="ghost" id="editBtn" type="button"><svg><use href="#i-edit"/></svg>Modifier</button>
+      <button class="ghost danger" id="delBtn" type="button"><svg><use href="#i-trash"/></svg><span>Supprimer</span></button>
+    </div>
     <div class="alert" id="alert" hidden></div>
   </section>
 
@@ -330,7 +341,7 @@ dialog[open] .sheet { animation: up .28s cubic-bezier(.2,.8,.2,1); }
   <form class="sheet" id="searchForm" method="dialog">
     <div class="sheet-top"><span class="grabber"></span><button class="close" type="button" data-close aria-label="Fermer">✕</button></div>
     <h3 id="searchTitle">Nouvelle recherche</h3>
-    <p>Tous les champs sont facultatifs : laisse la marque vide pour chercher toutes les voitures qui correspondent à tes filtres. Le scraping tourne sur GitHub et prend 1 à 4 minutes.</p>
+    <p id="searchIntro">Tous les champs sont facultatifs : laisse la marque vide pour chercher toutes les voitures qui correspondent à tes filtres. Le scraping tourne sur GitHub et prend 1 à 4 minutes.</p>
     <div class="form">
       <label>Marque<input class="field" name="make" id="f-make" list="makes" placeholder="toutes" autocomplete="off" autocapitalize="none"></label>
       <label>Modèle<input class="field" name="model" id="f-model" placeholder="tous" autocomplete="off" autocapitalize="none"></label>
@@ -473,6 +484,8 @@ async function load(slug) {
   $('#alert').hidden = !d.last_error;
   $('#alert').textContent = d.last_error ? `Dernier passage ${ago(d.last_attempt)} : ${d.last_error}` : '';
 
+  $('#heroActions').hidden = false;
+  disarmDelete();
   renderCluster(); renderPodium(); drawChart(); drawGrid(true);
 }
 
@@ -612,7 +625,7 @@ $('#keyForm').addEventListener('submit', async e => {
     await gh('/actions/workflows/scrape.yml', { token: t });
     store.set('gh_token', t); refreshKeyPip();
     $('#keyMsg').className = 'formmsg ok'; $('#keyMsg').textContent = 'Clé valide et enregistrée.';
-    setTimeout(() => { $('#keyDlg').close(); if (pendingSearch) openSearch(); }, 700);
+    setTimeout(() => { $('#keyDlg').close(); if (pendingSearch) { if (pendingMode === 'delete') $('#delBtn').click(); else openSearch(pendingMode); } }, 700);
   } catch (err) {
     $('#keyMsg').textContent = err.status === 401 ? 'Token invalide ou expiré.'
       : err.status === 404 || err.status === 403 ? `Ce token n'a pas accès aux Actions de ${OWNER}/${REPO}. Vérifie le repo choisi et la permission « Actions : Read and write ».`
@@ -622,14 +635,40 @@ $('#keyForm').addEventListener('submit', async e => {
 $('#keyDlg').addEventListener('close', () => { if (!token()) pendingSearch = false; });
 
 /* ============================================================ nouvelle recherche */
-function openSearch() {
+let editing = null;   // slug de la recherche en cours de modification
+function fillForm(search = {}, watched = false) {
+  const f = $('#searchForm');
+  for (const k of ['make', 'model', 'price_to', 'km_to', 'year_from', 'zip', 'name']) f.elements[k].value = search[k] || '';
+  f.elements.country.value = search.country || 'B';
+  if (![...f.elements.country.options].some(o => o.value === f.elements.country.value)) {
+    f.elements.country.add(new Option(search.country, search.country)); f.elements.country.value = search.country;
+  }
+  f.elements.radius.value = search.radius || '';
+  for (const k of ['fuel', 'gear']) { const r = [...f.querySelectorAll(`input[name=${k}]`)]; (r.find(x => x.value === (search[k] || '')) || r[0]).checked = true; }
+  $('#f-watch').checked = watched;
+}
+function openSearch(mode = 'new') {
   pendingSearch = false;
   $('#formMsg').textContent = '';
-  const s = current?.search || {};
-  if (!$('#f-make').value && s.make) { $('#f-make').value = s.make; $('#f-model').value = s.model || ''; }
+  if (mode === 'edit' && current) {
+    editing = currentSlug;
+    fillForm(current.search || {}, !!index.find(s => s.slug === currentSlug)?.watched);
+    $('#searchTitle').textContent = 'Modifier la recherche';
+    $('#searchIntro').textContent = 'Change les critères puis relance. Les nouveaux résultats remplacent ceux de cette recherche.';
+    $('#searchGo').textContent = 'Relancer avec ces critères';
+  } else {
+    editing = null;
+    fillForm({}, false);
+    $('#searchTitle').textContent = 'Nouvelle recherche';
+    $('#searchIntro').textContent = 'Tous les champs sont facultatifs : laisse la marque vide pour chercher toutes les voitures qui correspondent à tes filtres. Le scraping tourne sur GitHub et prend 1 à 4 minutes.';
+    $('#searchGo').textContent = 'Lancer la recherche';
+  }
   $('#searchDlg').showModal();
 }
-$('#fab').onclick = () => { if (!token()) { pendingSearch = true; $('#keyBtn').click(); } else openSearch(); };
+let pendingMode = 'new';
+function needKey(mode) { if (token()) return false; pendingSearch = true; pendingMode = mode; $('#keyBtn').click(); return true; }
+$('#fab').onclick = () => { if (!needKey('new')) openSearch('new'); };
+$('#editBtn').onclick = () => { if (!needKey('edit')) openSearch('edit'); };
 $('#searchCancel').onclick = () => $('#searchDlg').close();
 document.querySelectorAll('dialog').forEach(dlg => {
   dlg.querySelectorAll('[data-close]').forEach(b => b.addEventListener('click', () => dlg.close()));
@@ -651,12 +690,13 @@ $('#searchForm').addEventListener('submit', async e => {
   if (!Object.keys(search).some(k => k !== 'country' && k !== 'name')) { $('#formMsg').textContent = 'Choisis au moins un critère : marque, prix max, km max, année, carburant…'; return; }
   for (const k of ['price_to', 'km_to', 'year_from', 'zip']) if (search[k] && !/^\d+$/.test(search[k])) { $('#formMsg').textContent = 'Prix, km, année et code postal doivent être des nombres.'; return; }
   const watch = $('#f-watch').checked;
+  if (editing) search._replace = editing;
   const id = Math.random().toString(36).slice(2, 8);
   $('#searchGo').disabled = true; $('#formMsg').textContent = '';
   try {
     await gh('/actions/workflows/scrape.yml/dispatches', { method: 'POST', body: JSON.stringify({ ref: 'main',
       inputs: { search_json: JSON.stringify(search), request_id: id, watch: watch ? 'true' : 'false' } }) });
-    const job = { id, search, startedAt: new Date().toISOString(), phase: 0 };
+    const job = { id, search, kind: editing ? 'edit' : 'new', startedAt: new Date().toISOString(), phase: 0 };
     store.set('job', JSON.stringify(job));
     $('#searchDlg').close();
     track(job);
@@ -666,6 +706,31 @@ $('#searchForm').addEventListener('submit', async e => {
       : `Envoi impossible : ${err.message}`;
   } finally { $('#searchGo').disabled = false; }
 });
+
+/* ============================================================ suppression */
+let armTimer = null;
+function disarmDelete() { clearTimeout(armTimer); $('#delBtn').classList.remove('armed'); $('#delBtn span').textContent = 'Supprimer'; }
+$('#delBtn').onclick = async () => {
+  if (needKey('delete')) return;
+  const btn = $('#delBtn');
+  if (!btn.classList.contains('armed')) {
+    btn.classList.add('armed'); btn.querySelector('span').textContent = 'Toucher encore pour supprimer';
+    armTimer = setTimeout(disarmDelete, 4000); return;
+  }
+  disarmDelete();
+  const slug = currentSlug, id = Math.random().toString(36).slice(2, 8);
+  btn.disabled = true;
+  try {
+    await gh('/actions/workflows/scrape.yml/dispatches', { method: 'POST', body: JSON.stringify({ ref: 'main',
+      inputs: { search_json: JSON.stringify({ _delete: slug }), request_id: id, watch: 'false' } }) });
+    const job = { id, kind: 'delete', slug, label: current?.label || slug, search: {}, startedAt: new Date().toISOString(), phase: 0 };
+    store.set('job', JSON.stringify(job));
+    track(job);
+  } catch (err) {
+    $('#alert').hidden = false;
+    $('#alert').textContent = err.status === 401 ? 'Ta clé GitHub a expiré. Touche l\'icône clé pour en mettre une nouvelle.' : `Suppression impossible : ${err.message}`;
+  } finally { btn.disabled = false; }
+};
 
 /* ============================================================ suivi d'une recherche */
 let tracking = null;
@@ -679,7 +744,8 @@ function endJob() { store.set('job', null); clearTimeout(tracking); tracking = n
 $('#jobClose').onclick = () => { $('#job').hidden = true; $('#fab').hidden = false; };
 
 async function track(job) {
-  $('#jobTitle').textContent = `Recherche ${[job.search.make, job.search.model].filter(Boolean).join(' ') || 'toutes marques'}`;
+  const what = [job.search.make, job.search.model].filter(Boolean).join(' ') || 'toutes marques';
+  $('#jobTitle').textContent = job.kind === 'delete' ? `Suppression : ${job.label}` : job.kind === 'edit' ? `Modification : ${what}` : `Recherche ${what}`;
   const started = new Date(job.startedAt).getTime();
   const tick = async () => {
     try {
@@ -692,12 +758,24 @@ async function track(job) {
         } else if (run.status !== 'completed') {
           job.phase = 1; store.set('job', JSON.stringify(job));
           const sec = Math.max(0, Math.round((Date.now() - new Date(run.run_started_at || run.created_at)) / 1000));
-          setJob(1, `${run.status === 'queued' ? 'En file d\'attente' : `Parcours des pages AutoScout24 · ${Math.floor(sec / 60)} min ${String(sec % 60).padStart(2, '0')} s`} · <a href="${esc(run.html_url)}" target="_blank" rel="noopener">logs</a>`);
+          setJob(1, `${run.status === 'queued' ? 'En file d\'attente' : job.kind === 'delete' ? 'Suppression en cours' : `Parcours des pages AutoScout24 · ${Math.floor(sec / 60)} min ${String(sec % 60).padStart(2, '0')} s`} · <a href="${esc(run.html_url)}" target="_blank" rel="noopener">logs</a>`);
         } else if (run.conclusion !== 'success') {
           setJob(1, `Le scraping a échoué. <a href="${esc(run.html_url)}" target="_blank" rel="noopener">Ouvre les logs</a> pour voir pourquoi.`, true); endJob(); return;
         } else { job.phase = 2; job.doneAt = run.updated_at; store.set('job', JSON.stringify(job)); }
       }
-      if (job.phase === 2) {
+      if (job.phase === 2 && job.kind === 'delete') {
+        setJob(2, 'Mise à jour de la page…');
+        const idx = await loadIndex();
+        if (!idx.some(s => s.slug === job.slug)) {
+          setJob(3, 'Recherche supprimée.');
+          endJob();
+          if (idx.length) await load(idx[0].slug);
+          else { current = null; cars = []; $('#heroActions').hidden = true; $('#heroTitle').innerHTML = 'Aucune <em>recherche</em>'; $('#meta').innerHTML = ''; renderCluster(); renderPodium(); drawChart(); drawGrid(); }
+          setTimeout(() => { $('#job').hidden = true; $('#fab').hidden = false; }, 4000);
+          return;
+        }
+        if (Date.now() - new Date(job.doneAt || job.startedAt).getTime() > 6 * 60e3) { setJob(2, 'La page tarde à se mettre à jour. Recharge-la dans quelques minutes.', true); endJob(); return; }
+      } else if (job.phase === 2) {
         setJob(2, 'Mise en ligne des résultats (environ 1 min)…');
         const idx = await loadIndex();
         const fresh = idx.filter(s => s.updated && new Date(s.updated).getTime() >= started - 60e3).sort((a, b) => new Date(b.updated) - new Date(a.updated))[0];

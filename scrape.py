@@ -245,7 +245,7 @@ def run_search(search: dict, max_pages: int) -> dict:
             "new": sum(c["is_new"] for c in cars)}
 
 
-def write_index(results: list[dict], watched: set[str]):
+def write_index(results: list[dict], watched: set[str], removed: set[str] = frozenset()):
     idx_file = DATA / "index.json"
     idx = {}
     if idx_file.exists():
@@ -253,12 +253,25 @@ def write_index(results: list[dict], watched: set[str]):
             idx = {s["slug"]: s for s in json.loads(idx_file.read_text("utf-8")).get("searches", [])}
         except (ValueError, KeyError):
             idx = {}
+    for slug in removed:
+        idx.pop(slug, None)
     for r in results:
         idx[r["slug"]] = r
     for slug, entry in idx.items():
         entry["watched"] = slug in watched
     searches = sorted(idx.values(), key=lambda s: s.get("updated") or "", reverse=True)
     idx_file.write_text(json.dumps({"updated": now_iso(), "searches": searches}, ensure_ascii=False, indent=1), "utf-8")
+
+
+def save_config(cfg: dict):
+    (ROOT / "config.json").write_text(json.dumps(cfg, ensure_ascii=False, indent=2) + "\n", "utf-8")
+
+
+def remove_data(slug: str):
+    f = DATA / f"{slug}.json"
+    if f.exists():
+        f.unlink()
+        print(f"  Données supprimées : {f.relative_to(ROOT)}")
 
 
 def main():
@@ -272,30 +285,65 @@ def main():
     a = ap.parse_args()
 
     cfg = json.loads((ROOT / "config.json").read_text("utf-8"))
+    cfg.setdefault("searches", [])
     max_pages = a.max_pages or cfg.get("max_pages", 20)
     scraper.MIN_DELAY = float(cfg.get("delay_seconds", scraper.MIN_DELAY))
+    DATA.mkdir(parents=True, exist_ok=True)
 
     cli = {k: getattr(a, k) for k in FILTER_KEYS + ["name"] if getattr(a, k)}
+    replace = delete = None
+    from_site = False
     if a.search_json:
         try:
             raw = json.loads(a.search_json)
         except ValueError:
             sys.exit("search_json invalide")
+        from_site = True
+        replace = scraper.slug(raw.get("_replace") or "") or None
+        delete = scraper.slug(raw.get("_delete") or "") or None
         cli = {k: str(v).strip() for k, v in raw.items() if k in FILTER_KEYS + ["name"] and str(v or "").strip()}
-    searches = [cli] if cli else cfg.get("searches", [])
 
-    if a.watch and cli:
-        known = {search_slug(s) for s in cfg.get("searches", [])}
-        if search_slug(cli) not in known:
-            cfg.setdefault("searches", []).append(cli)
-            (ROOT / "config.json").write_text(json.dumps(cfg, ensure_ascii=False, indent=2) + "\n", "utf-8")
-            print(f"Recherche ajoutée à la surveillance : {search_label(cli)}")
+    watched = lambda: {search_slug(s) for s in cfg["searches"]}
+
+    # --- suppression d'une recherche
+    if delete:
+        before = len(cfg["searches"])
+        cfg["searches"] = [s for s in cfg["searches"] if search_slug(s) != delete]
+        if len(cfg["searches"]) != before:
+            save_config(cfg)
+            print(f"Surveillance arrêtée : {delete}")
+        remove_data(delete)
+        write_index([], watched(), removed={delete})
+        print(f"Recherche supprimée : {delete}")
+        return
+
+    # --- surveillance (ajout / retrait), y compris lors d'une modification
+    if cli and from_site:
+        new = search_slug(cli)
+        drop = {new, replace} - {None}
+        kept = [s for s in cfg["searches"] if search_slug(s) not in drop]
+        if a.watch:
+            kept.append(cli)
+        if [search_slug(s) for s in kept] != [search_slug(s) for s in cfg["searches"]] or a.watch:
+            cfg["searches"] = kept
+            save_config(cfg)
+            print(("Surveillée toutes les 6 h : " if a.watch else "Non surveillée : ") + search_label(cli))
+    elif cli and a.watch and search_slug(cli) not in watched():
+        cfg["searches"].append(cli)
+        save_config(cfg)
+
+    searches = [cli] if cli else cfg["searches"]
     if not searches:
         sys.exit("Aucune recherche : passe --make/--model ou remplis config.json")
 
-    DATA.mkdir(parents=True, exist_ok=True)
     results = [run_search(s, max_pages) for s in searches]
-    write_index(results, {search_slug(s) for s in cfg.get("searches", [])})
+
+    removed = set()
+    if replace and cli and search_slug(cli) != replace:
+        remove_data(replace)
+        removed.add(replace)
+        print(f"Ancienne recherche remplacée : {replace} -> {search_slug(cli)}")
+    write_index(results, watched(), removed)
 
     if all(r.get("error") and not r.get("count") for r in results):
         sys.exit("Toutes les recherches ont échoué (voir les erreurs ci-dessus).")

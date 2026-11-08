@@ -261,6 +261,7 @@ dialog[open] .sheet { animation: up .28s cubic-bezier(.2,.8,.2,1); }
 .spark path { fill: none; stroke: var(--deal); stroke-width: 1.6; stroke-linejoin: round; stroke-linecap: round; }
 .spark circle { fill: var(--deal); }
 .age { white-space: nowrap; }
+.flags { font-size: 12.5px; color: var(--warn); background: var(--warn-bg); border-radius: 8px; padding: 7px 9px; line-height: 1.4; }
 .age.old { color: var(--new); }
 
 /* ---------- note du modèle ---------- */
@@ -392,6 +393,7 @@ dialog[open] .sheet { animation: up .28s cubic-bezier(.2,.8,.2,1); }
       <label class="chip"><input type="checkbox" id="onlyNew">Nouvelles</label>
       <label class="chip"><input type="checkbox" id="onlyDrop">Prix en baisse</label>
       <label class="chip"><input type="checkbox" id="hideSus" checked>Sans les suspectes</label>
+      <label class="chip"><input type="checkbox" id="onlySus">Voir les suspectes</label>
       <span class="count" id="count"></span>
     </div>
     <div class="grid" id="grid"></div>
@@ -562,7 +564,7 @@ let favs = readJSON('favs', {});           // id -> { slug, label, snap, savedAt
 let cmpIds = [];                            // jusqu'à 3 annonces
 const saveFavs = () => store.set('favs', JSON.stringify(favs));
 const SNAP_KEYS = ['id', 'url', 'make', 'model', 'version', 'price', 'price_label', 'km', 'year', 'first_reg', 'fuel', 'gear', 'power', 'zip', 'city', 'country',
-                   'seller', 'seller_name', 'image', 'delta', 'expected_price', 'suspicious', 'first_seen', 'price_history', 'price_drop', 'is_new'];
+                   'seller', 'seller_name', 'image', 'delta', 'expected_price', 'suspicious', 'flags', 'first_seen', 'price_history', 'price_drop', 'is_new'];
 const snap = c => Object.fromEntries(SNAP_KEYS.map(k => [k, c[k]]));
 
 let ZIP = null, home = store.get('home_zip') || '';
@@ -723,6 +725,7 @@ function card(c, i, opts = {}) {
     <div class="body">
       <div class="title"><b>${esc(c.make)} ${esc(c.model)}</b><span>${esc(c.version) || '&nbsp;'}</span></div>
       <div class="verdict">${verdict}${c.expected_price ? `<span class="expected">attendu ≈ ${fmt(c.expected_price)} €</span>` : ''}${lab ? `<span class="pill ${lab[1]}">${lab[0]}</span>` : ''}</div>
+      ${c.flags?.length ? `<div class="flags">⚠ ${c.flags.map(esc).join(' · ')}</div>` : ''}
       ${n ? `<div class="deal-line"><span>Négo : vise <b>${fmt(n.target)} €</b> (−${Math.round(n.pct * 100)} %)</span>${spark(c.price_history)}</div>` : ''}
       <div class="specs">${odo(c.km)}<span>${esc(c.first_reg || c.year || '')}</span><span>${esc(c.fuel || '')}</span><span>${esc((c.gear || '').replace(/^Boîte /, ''))}</span><span>${esc(c.power || '')}</span></div>
       <div class="where"><span>${esc([c.zip, c.city].filter(Boolean).join(' '))}${km != null ? (km < 4 ? ' · tout près' : ` · ≈ ${km} km`) : ''}</span><span class="age ${old ? 'old' : ''}">${esc(c._from || age)}</span></div>
@@ -735,12 +738,12 @@ function renderPodium() {
   $('#podium').innerHTML = top.map((c, i) => card(c, i, { big: true, rank: i + 1, reveal: !reduced })).join('');
 }
 
-const FILTERS = ['#q', '#order', '#maxDist', '#onlyFav', '#onlyNew', '#onlyDeals', '#onlyDrop', '#hideSus'];
+const FILTERS = ['#q', '#order', '#maxDist', '#onlySus', '#onlyFav', '#onlyNew', '#onlyDeals', '#onlyDrop', '#hideSus'];
 function drawGrid(reveal = false) {
   const q = $('#q').value.trim().toLowerCase(), order = $('#order').value;
   const list = cars.filter(c => (!q || [c.make, c.model, c.version, c.city, c.zip, c.fuel, c.gear, c.first_reg, c.seller_name].join(' ').toLowerCase().includes(q))
     && (!$('#onlyNew').checked || c.is_new) && (!$('#onlyDeals').checked || isDeal(c)) && (!$('#onlyDrop').checked || c.price_drop)
-    && (!$('#hideSus').checked || !c.suspicious) && (!$('#onlyFav').checked || favs[c.id])
+    && ($('#onlySus').checked ? c.suspicious : (!$('#hideSus').checked || !c.suspicious)) && (!$('#onlyFav').checked || favs[c.id])
     && (!$('#maxDist').value || (dist(c) ?? Infinity) <= +$('#maxDist').value));
   const key = { deal: c => c.suspicious ? 8 : (c.delta ?? 9), new: c => -new Date(c.first_seen || 0), price: c => c.price ?? Infinity,
                 '-price': c => -(c.price ?? 0), km: c => c.km ?? Infinity, '-year': c => -(c.year ?? 0),
@@ -756,6 +759,8 @@ function drawGrid(reveal = false) {
   $('#more').textContent = `Voir plus · ${fmt(list.length - shown)} restantes`;
 }
 FILTERS.forEach(s => ['input', 'change'].forEach(ev => $(s).addEventListener(ev, () => { shown = 24; drawGrid(); })));
+$('#onlySus').addEventListener('change', () => { if ($('#onlySus').checked) { $('#hideSus').checked = false; } drawGrid(); });
+$('#hideSus').addEventListener('change', () => { if ($('#hideSus').checked) { $('#onlySus').checked = false; } drawGrid(); });
 $('#more').onclick = () => { shown += 24; drawGrid(); };
 
 /* ============================================================ favoris & comparaison (clics sur les cartes) */

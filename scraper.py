@@ -245,3 +245,44 @@ def scrape_page(params: dict, page: int) -> dict:
     result["url"] = url
     result["page"] = page
     return result
+
+
+# ---------------------------------------------------------------- page d'une annonce
+
+def _find_texts(o, key="description", out=None):
+    out = [] if out is None else out
+    if isinstance(o, dict):
+        for k, v in o.items():
+            if k.lower() == key and isinstance(v, str):
+                out.append(v)
+            else:
+                _find_texts(v, key, out)
+    elif isinstance(o, list):
+        for v in o:
+            _find_texts(v, key, out)
+    return out
+
+
+def fetch_description(url: str) -> str | None:
+    """Renvoie le texte de description d'une annonce (sans HTML), ou None."""
+    html = fetch(url)
+    texts = []
+    m = re.search(r'<script[^>]*id="__NEXT_DATA__"[^>]*>(.*?)</script>', html, re.S)
+    if m:
+        raw = m.group(1).strip()
+        if raw.startswith("{&") or "&#34;" in raw[:200]:
+            raw = htmllib.unescape(raw)
+        try:
+            texts = _find_texts(json.loads(raw))
+        except ValueError:
+            texts = []
+    if not texts:  # repli : bloc description dans le HTML
+        m = re.search(r'data-testid="[^"]*description[^"]*"[^>]*>(.*?)</div>', html, re.S | re.I)
+        if m:
+            texts = [m.group(1)]
+    if not texts:
+        return None
+    text = max(texts, key=len)
+    text = re.sub(r"<br\s*/?>", "\n", text, flags=re.I)
+    text = htmllib.unescape(re.sub(r"<[^>]+>", " ", text))
+    return re.sub(r"[ \t]+", " ", text).strip() or None

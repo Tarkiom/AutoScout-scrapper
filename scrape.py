@@ -69,9 +69,17 @@ def search_label(s: dict) -> str:
 MIN_PRICE = 1500          # en dessous : épave, pièces ou arnaque -> exclu du calcul
 RED_FLAGS = re.compile(
     r"export|marchand|n[ée]gociant|pi[eè]ces|panne|accident|sinistr|d[ée]fect|ne (d[ée]marre|roule)|"
-    r"probl[eè]me|moteur hs|hs\b|bo[iî]te hs|[ée]pave|pour bricoleur|sans ct|non roulant|r[ée]paration",
+    r"probl[eè]me|moteur hs|hs\b|bo[iî]te hs|[ée]pave|pour bricoleur|sans ct|non roulant|r[ée]paration|"
+    r"sans contr[ôo]le|feuille rose|bloqu[ée]|ne passe pas|[àa] r[ée]viser|voyant",
     re.I)
 DEAL_THRESHOLD = -0.15    # 15 % sous le prix attendu
+TOO_GOOD = -0.50          # plus de 50 % sous le prix attendu : trop beau pour être vrai
+DESC_CHECKS_PER_RUN = 40  # pages d'annonces ouvertes au maximum par passage
+MAKES = ["abarth", "alfa romeo", "audi", "bmw", "citroen", "citroën", "cupra", "dacia", "ds", "fiat", "ford", "honda", "hyundai",
+         "jaguar", "jeep", "kia", "land rover", "lexus", "mazda", "mercedes", "mini", "mitsubishi", "nissan", "opel", "peugeot",
+         "porsche", "renault", "seat", "skoda", "smart", "subaru", "suzuki", "tesla", "toyota", "volkswagen", "volvo"]
+MAKE_ALIASES = {"volkswagen": ["vw"], "mercedes-benz": ["mercedes", "merco", "benz"], "citroen": ["citroën"], "alfa romeo": ["alfa"],
+                "land rover": ["range rover", "landrover"], "bmw": ["bm"]}
 
 
 def _solve(m: list[list[float]], v: list[float]):
@@ -153,17 +161,78 @@ def price_model(cars: list[dict]):
     return predict, infos
 
 
-def flag_suspicious(c: dict) -> bool:
-    text = f"{c.get('version') or ''} {c.get('subtitle') or ''}"
-    return (c.get("price_label") == "toolow-price"
-            or (bool(c.get("price")) and c["price"] < MIN_PRICE)
-            or bool(RED_FLAGS.search(text)))
+def flag_reasons(c: dict) -> list[str]:
+    """Raisons de douter d'une annonce, d'après les données de la liste."""
+    reasons = []
+    if c.get("price_label") == "toolow-price":
+        reasons.append("prix jugé anormal par AutoScout24")
+    if c.get("price") and c["price"] < MIN_PRICE:
+        reasons.append(f"prix sous {MIN_PRICE} €")
+    m = RED_FLAGS.search(f"{c.get('version') or ''} {c.get('subtitle') or ''}")
+    if m:
+        reasons.append(f"titre : « {m.group(0).strip()} »")
+    return reasons
+
+
+def description_reasons(c: dict, text: str) -> list[str]:
+    """Compare la description à la fiche : autre marque, autre année, mots qui fâchent."""
+    reasons, low = [], text.lower()
+    m = RED_FLAGS.search(low)
+    if m:
+        reasons.append(f"description : « {m.group(0).strip()} »")
+    norm = low.replace("ë", "e").replace("é", "e")
+    make = (c.get("make") or "").lower().replace("ë", "e")
+    model = (c.get("model") or "").lower()
+    aliases = {make, *MAKE_ALIASES.get(make, [])} - {""}
+    own_named = any(re.search(rf"\b{re.escape(a)}\b", norm) for a in aliases) or (len(model) >= 2 and re.search(rf"\b{re.escape(model)}\b", norm))
+    others = [mk for mk in MAKES if re.search(rf"\b{re.escape(mk.replace('ë', 'e'))}\b", norm) and mk.replace("ë", "e") not in aliases]
+    if others and make and not own_named:
+        reasons.append(f"la description parle d'une {others[0].title()}")
+    if c.get("year"):
+        years = {int(y) for y in re.findall(r"\b(19[5-9]\d|20[0-3]\d)\b", low)}
+        far = sorted(y for y in years if abs(y - c["year"]) >= 4 and y <= datetime.now().year)
+        if far and c["year"] not in years:
+            reasons.append(f"fiche : {c['year']}, description : {far[0]}")
+    return reasons
+
+
+def check_descriptions(cars: list[dict], previous: dict):
+    """Ouvre les annonces qui ressemblent à de bonnes affaires et vérifie leur description.
+    Le résultat est gardé d'un passage à l'autre (une annonce n'est lue qu'une fois)."""
+    todo = []
+    for c in cars:
+        old = previous.get(c["id"]) or {}
+        if "desc_flags" in old and old.get("price") == c.get("price"):
+            c["desc_flags"] = old["desc_flags"]
+        elif not c.get("suspicious") and c.get("url") and is_deal(c):
+            todo.append(c)
+    todo.sort(key=lambda c: c["delta"] if c.get("delta") is not None else 0)
+    checked = 0
+    for c in todo[:DESC_CHECKS_PER_RUN]:
+        try:
+            text = scraper.fetch_description(c["url"])
+        except Exception as e:
+            print(f"  description illisible ({e})")
+            if "403" in str(e) or "429" in str(e):
+                break
+            continue
+        c["desc_flags"] = description_reasons(c, text) if text else []
+        checked += 1
+        time.sleep(random.uniform(0.3, 1.0))
+    for c in cars:
+        if c.get("desc_flags"):
+            c["flags"] = list(dict.fromkeys((c.get("flags") or []) + c["desc_flags"]))
+            c["suspicious"] = True
+    if checked:
+        flagged = sum(1 for c in todo[:DESC_CHECKS_PER_RUN] if c.get("desc_flags"))
+        print(f"  {checked} description(s) vérifiée(s), {flagged} incohérente(s)")
 
 
 def add_deal_score(cars: list[dict]):
     for c in cars:
         c["price_label"] = (c.get("price_label") or "").strip() or None
-        c["suspicious"] = flag_suspicious(c)
+        c["flags"] = flag_reasons(c)
+        c["suspicious"] = bool(c["flags"])
     predict, infos = price_model(cars)
     for c in cars:
         c["expected_price"] = None
@@ -173,6 +242,9 @@ def add_deal_score(cars: list[dict]):
             if exp and exp > 0:
                 c["expected_price"] = round(exp, -1)
                 c["delta"] = round(c["price"] / exp - 1, 4)
+                if c["delta"] <= TOO_GOOD and not c["suspicious"]:
+                    c["flags"].append(f"{round(-c['delta'] * 100)} % sous le prix attendu : trop beau pour être vrai")
+                    c["suspicious"] = True
     return infos
 
 
@@ -313,6 +385,8 @@ def run_search(search: dict, max_pages: int) -> dict:
         c["dropped_now"] = bool(old and old.get("price") and c.get("price") and c["price"] < old["price"])
 
     model = add_deal_score(cars)
+    if cars:
+        check_descriptions(cars, previous)
 
     prev_data = {}
     if out_file.exists():
@@ -337,7 +411,7 @@ def run_search(search: dict, max_pages: int) -> dict:
             hist = c.get("price_history") or ([[c.get("first_seen", stamp)[:10], c.get("price")]] if c.get("price") else [])
             days = (datetime.fromisoformat(stamp) - datetime.fromisoformat(c.get("first_seen", stamp))).days
             sold.insert(0, {k: c.get(k) for k in ("id", "url", "make", "model", "version", "year", "first_reg", "km", "fuel",
-                                                  "gear", "power", "zip", "city", "seller_name", "image", "delta", "expected_price", "suspicious")}
+                                                  "gear", "power", "zip", "city", "seller_name", "image", "delta", "expected_price", "suspicious", "flags")}
                         | {"price": c.get("price"), "first_price": hist[0][1] if hist else c.get("price"),
                            "first_seen": c.get("first_seen"), "gone_at": stamp, "days_online": max(days, 0)})
         if gone:

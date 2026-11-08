@@ -238,7 +238,7 @@ def run_search(search: dict, max_pages: int) -> dict:
             "new": sum(c["is_new"] for c in cars)}
 
 
-def write_index(results: list[dict]):
+def write_index(results: list[dict], watched: set[str]):
     idx_file = DATA / "index.json"
     idx = {}
     if idx_file.exists():
@@ -248,6 +248,8 @@ def write_index(results: list[dict]):
             idx = {}
     for r in results:
         idx[r["slug"]] = r
+    for slug, entry in idx.items():
+        entry["watched"] = slug in watched
     searches = sorted(idx.values(), key=lambda s: s.get("updated") or "", reverse=True)
     idx_file.write_text(json.dumps({"updated": now_iso(), "searches": searches}, ensure_ascii=False, indent=1), "utf-8")
 
@@ -258,6 +260,8 @@ def main():
         ap.add_argument("--" + k.replace("_", "-"))
     ap.add_argument("--name")
     ap.add_argument("--max-pages", type=int, default=None)
+    ap.add_argument("--search-json", help="recherche complète en JSON (envoyée par le site)")
+    ap.add_argument("--watch", action="store_true", help="ajoute la recherche à config.json (scraping toutes les 6 h)")
     a = ap.parse_args()
 
     cfg = json.loads((ROOT / "config.json").read_text("utf-8"))
@@ -265,13 +269,26 @@ def main():
     scraper.MIN_DELAY = float(cfg.get("delay_seconds", scraper.MIN_DELAY))
 
     cli = {k: getattr(a, k) for k in FILTER_KEYS + ["name"] if getattr(a, k)}
+    if a.search_json:
+        try:
+            raw = json.loads(a.search_json)
+        except ValueError:
+            sys.exit("search_json invalide")
+        cli = {k: str(v).strip() for k, v in raw.items() if k in FILTER_KEYS + ["name"] and str(v or "").strip()}
     searches = [cli] if cli.get("make") or cli.get("model") or cli.get("name") else cfg.get("searches", [])
+
+    if a.watch and cli:
+        known = {search_slug(s) for s in cfg.get("searches", [])}
+        if search_slug(cli) not in known:
+            cfg.setdefault("searches", []).append(cli)
+            (ROOT / "config.json").write_text(json.dumps(cfg, ensure_ascii=False, indent=2) + "\n", "utf-8")
+            print(f"Recherche ajoutée à la surveillance : {search_label(cli)}")
     if not searches:
         sys.exit("Aucune recherche : passe --make/--model ou remplis config.json")
 
     DATA.mkdir(parents=True, exist_ok=True)
     results = [run_search(s, max_pages) for s in searches]
-    write_index(results)
+    write_index(results, {search_slug(s) for s in cfg.get("searches", [])})
 
     if all(r.get("error") and not r.get("count") for r in results):
         sys.exit("Toutes les recherches ont échoué (voir les erreurs ci-dessus).")

@@ -1,4 +1,5 @@
 name: Scraper AutoScout24
+run-name: ${{ github.event_name == 'schedule' && 'Surveillance automatique' || inputs.request_id && format('Recherche depuis le site [{0}]', inputs.request_id) || format('Recherche {0} {1}', inputs.make || 'config.json', inputs.model) }}
 
 on:
   # Lancement manuel depuis l'onglet Actions (ou l'app GitHub)
@@ -22,12 +23,20 @@ on:
       fuel:
         description: "Carburant : B essence, D diesel, E électrique, 2 hybride"
         required: false
-      zip_radius:
-        description: "Code postal et rayon en km (ex : 6110 50)"
-        required: false
       max_pages:
         description: "Pages max (20 annonces par page). Vide = valeur de config.json"
         required: false
+      search_json:
+        description: "Recherche complète en JSON (utilisé par le site, laisse vide)"
+        required: false
+      request_id:
+        description: "Identifiant de la demande (utilisé par le site, laisse vide)"
+        required: false
+      watch:
+        description: "Surveiller cette recherche toutes les 6 h"
+        type: boolean
+        required: false
+        default: false
   # Automatique : toutes les 6 heures, sur les recherches de config.json
   schedule:
     - cron: "17 */6 * * *"
@@ -62,8 +71,9 @@ jobs:
           IN_KM_TO: ${{ inputs.km_to }}
           IN_YEAR_FROM: ${{ inputs.year_from }}
           IN_FUEL: ${{ inputs.fuel }}
-          IN_ZIP_RADIUS: ${{ inputs.zip_radius }}
           IN_MAX_PAGES: ${{ inputs.max_pages }}
+          IN_SEARCH_JSON: ${{ inputs.search_json }}
+          IN_WATCH: ${{ inputs.watch }}
         run: |
           args=()
           [ -n "$IN_MAKE" ]      && args+=(--make "$IN_MAKE")
@@ -72,12 +82,9 @@ jobs:
           [ -n "$IN_KM_TO" ]     && args+=(--km-to "$IN_KM_TO")
           [ -n "$IN_YEAR_FROM" ] && args+=(--year-from "$IN_YEAR_FROM")
           [ -n "$IN_FUEL" ]      && args+=(--fuel "$IN_FUEL")
-          if [ -n "$IN_ZIP_RADIUS" ]; then
-            read -r zip radius <<< "$IN_ZIP_RADIUS"
-            args+=(--zip "$zip")
-            [ -n "$radius" ] && args+=(--radius "$radius")
-          fi
           [ -n "$IN_MAX_PAGES" ] && args+=(--max-pages "$IN_MAX_PAGES")
+          [ -n "$IN_SEARCH_JSON" ] && args+=(--search-json "$IN_SEARCH_JSON")
+          [ "$IN_WATCH" = "true" ] && args+=(--watch)
           python scrape.py "${args[@]}"
 
       - name: Enregistrer les résultats
@@ -85,7 +92,7 @@ jobs:
         run: |
           git config user.name "autoscout-bot"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add docs/data
+          git add docs/data config.json
           if git diff --cached --quiet; then
             echo "Rien de nouveau."
           else

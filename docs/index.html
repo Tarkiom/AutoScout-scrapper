@@ -3,258 +3,731 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="theme-color" content="#f3f5f8" media="(prefers-color-scheme: light)">
-<meta name="theme-color" content="#0d1117" media="(prefers-color-scheme: dark)">
-<title>AutoScout Analyseur</title>
+<meta name="theme-color" content="#101214" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#eceae5" media="(prefers-color-scheme: light)">
+<title>AutoScout Radar</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght,wdth@500..800,100..125&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@500;600&display=swap">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@600;800;900&family=Instrument+Sans:wght@400;500;600;700&family=Martian+Mono:wdth,wght@87.5,500;87.5,700&display=swap">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <style>
-  :root {
-    --bg: #f3f5f8; --surface: #ffffff; --surface-2: #e9edf3; --line: #d5dce6;
-    --ink: #141b26; --muted: #5c6878; --accent: #1d4fd8; --accent-ink: #ffffff;
-    --deal: #0f8a5a; --deal-bg: #e2f5ec; --new: #b4580b; --new-bg: #fdeedd; --err: #c4322b; --warn-bg: #fbe4e2;
-    --dot: rgba(29, 79, 216, .55); --dot-deal: rgba(15, 138, 90, .85); --trend: #5c6878;
-    --f-display: "Archivo", "Arial Narrow", system-ui, sans-serif;
-    --f-body: "IBM Plex Sans", system-ui, -apple-system, sans-serif;
-    --f-mono: "IBM Plex Mono", ui-monospace, Menlo, monospace;
-    color-scheme: light;
-  }
-  @media (prefers-color-scheme: dark) { :root {
-    --bg: #0d1117; --surface: #151b24; --surface-2: #1c2430; --line: #2a3442;
-    --ink: #e7ecf3; --muted: #93a0b2; --accent: #7aa2ff; --accent-ink: #0b1220;
-    --deal: #4cd69a; --deal-bg: #12301f; --new: #f0a35a; --new-bg: #3a2512; --err: #ff7b72; --warn-bg: #3a1714;
-    --dot: rgba(122, 162, 255, .6); --dot-deal: rgba(76, 214, 154, .9); --trend: #93a0b2; color-scheme: dark } }
+/* Concept : nuit sur un parking de concession. Asphalte granuleux, plaques belges (bordeaux sur blanc, bande UE),
+   compteurs kilométriques à rouleaux, aiguille ambre pour l'action. */
+:root {
+  --asphalt: #101214; --asphalt-2: #171a1d; --panel: #1c2024; --panel-2: #242a2f; --line: #2e353b;
+  --chalk: #eef0f1; --dim: #95a0a8; --faint: #5e6870;
+  --amber: #ffb020; --amber-ink: #1d1300;
+  --plate: #f6f5f1; --plate-red: #a3172f; --eu: #0b3b9c; --eu-star: #ffd500;
+  --deal: #3ddc97; --deal-bg: rgba(61, 220, 151, .13);
+  --new: #ffb020; --new-bg: rgba(255, 176, 32, .14);
+  --warn: #ff6b5b; --warn-bg: rgba(255, 107, 91, .14);
+  --dot: rgba(149, 160, 168, .55);
+  --grain-opacity: .07;
+  --f-display: "Big Shoulders Display", "Arial Narrow", Impact, sans-serif;
+  --f-body: "Instrument Sans", "Segoe UI", system-ui, sans-serif;
+  --f-mono: "Martian Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+  --radius: 14px;
+  color-scheme: dark;
+}
+@media (prefers-color-scheme: light) { :root {
+  --asphalt: #eceae5; --asphalt-2: #e3e0da; --panel: #f8f7f4; --panel-2: #efede8; --line: #d8d4cc;
+  --chalk: #17191b; --dim: #5f676d; --faint: #9aa0a4;
+  --amber: #c97a00; --amber-ink: #ffffff;
+  --deal: #0c8a57; --deal-bg: rgba(12, 138, 87, .11);
+  --new: #b06400; --new-bg: rgba(201, 122, 0, .12);
+  --warn: #c2321f; --warn-bg: rgba(194, 50, 31, .1);
+  --dot: rgba(95, 103, 109, .45);
+  --grain-opacity: .05;
+  color-scheme: light } }
 
-  * { box-sizing: border-box; }
-  html { -webkit-text-size-adjust: 100%; }
-  body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.5 var(--f-body);
-         padding: env(safe-area-inset-top, 0px) max(14px, env(safe-area-inset-right, 0px)) env(safe-area-inset-bottom, 0px) max(14px, env(safe-area-inset-left, 0px)); }
-  .wrap { max-width: 1240px; margin: 0 auto; padding-block: 20px 48px; display: flex; flex-direction: column; gap: 18px; }
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body { margin: 0; min-height: 100vh; background: var(--asphalt); color: var(--chalk); font: 15px/1.5 var(--f-body);
+       padding: env(safe-area-inset-top, 0px) max(16px, env(safe-area-inset-right, 0px)) calc(96px + env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px)); }
+body::before { content: ""; position: fixed; inset: 0; pointer-events: none; z-index: 0; opacity: var(--grain-opacity);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E"); }
+.wrap { position: relative; z-index: 1; max-width: 1180px; margin: 0 auto; padding-block: 18px 40px; display: flex; flex-direction: column; gap: 28px; }
+:focus-visible { outline: 2px solid var(--amber); outline-offset: 2px; }
+button { font: inherit; color: inherit; }
+a { color: inherit; }
 
-  header { display: flex; flex-direction: column; gap: 4px; }
-  h1 { margin: 0; font: 800 clamp(26px, 6vw, 40px)/1.05 var(--f-display); font-stretch: 112%; letter-spacing: -.02em; }
-  h1 .odo { font-family: var(--f-mono); font-weight: 600; font-size: .45em; letter-spacing: .08em; background: var(--ink); color: var(--bg);
-            padding: 3px 7px; border-radius: 4px; vertical-align: middle; margin-left: 4px; }
-  .meta { color: var(--muted); font-size: 13px; display: flex; flex-wrap: wrap; gap: 4px 12px; }
-  .meta a { color: var(--accent); }
-  .err { color: var(--err); font-size: 13px; }
+/* ---------- plaque belge ---------- */
+.plate { display: inline-flex; align-items: stretch; background: var(--plate); border: 2px solid var(--plate-red); border-radius: 6px; overflow: hidden;
+         box-shadow: 0 1px 0 rgba(0,0,0,.25), inset 0 0 0 1px rgba(255,255,255,.6); line-height: 1; vertical-align: middle; }
+.plate .eu { background: var(--eu); color: #fff; display: flex; flex-direction: column; align-items: center; justify-content: space-between; padding: 3px 3px 2px; gap: 1px; }
+.plate .eu svg { width: 12px; height: 12px; }
+.plate .eu b { font: 700 8px/1 var(--f-body); }
+.plate .txt { color: var(--plate-red); font: 700 15px/1 var(--f-mono); font-stretch: 87.5%; letter-spacing: .02em; padding: 6px 9px 5px; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.plate.lg .txt { font-size: 21px; padding: 8px 12px 7px; }
+.plate.lg .eu svg { width: 15px; height: 15px; }
+.plate.lg .eu b { font-size: 10px; }
 
-  .tabs { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 2px; scrollbar-width: none; }
-  .tabs button { flex: none; font: 600 14px var(--f-body); border: 1px solid var(--line); background: var(--surface); color: var(--ink);
-                 border-radius: 99px; padding: 7px 14px; cursor: pointer; }
-  .tabs button[aria-pressed="true"] { background: var(--ink); color: var(--bg); border-color: var(--ink); }
-  .tabs .n { font-family: var(--f-mono); opacity: .65; margin-left: 4px; }
+/* ---------- en-tête ---------- */
+.topbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.brand { display: flex; align-items: center; gap: 12px; text-decoration: none; }
+.brand small { font: 600 11px var(--f-body); letter-spacing: .16em; text-transform: uppercase; color: var(--dim); }
+.icon-btn { width: 42px; height: 42px; display: grid; place-items: center; border-radius: 12px; border: 1px solid var(--line); background: var(--panel); cursor: pointer; position: relative; }
+.icon-btn svg { width: 20px; height: 20px; }
+.icon-btn .pip { position: absolute; top: 8px; right: 8px; width: 8px; height: 8px; border-radius: 50%; background: var(--warn); border: 2px solid var(--panel); }
+.icon-btn .pip.ok { background: var(--deal); }
 
-  .dash { display: grid; grid-template-columns: minmax(0, 320px) minmax(0, 1fr); gap: 14px; }
-  @media (max-width: 860px) { .dash { grid-template-columns: 1fr; } }
-  .stats { display: grid; grid-template-columns: 1fr 1fr; gap: 1px; background: var(--line); border: 1px solid var(--line); border-radius: 14px; overflow: hidden; align-content: start; }
-  .stat { background: var(--surface); padding: 12px 14px; display: flex; flex-direction: column; gap: 2px; }
-  .stat b { font: 600 21px var(--f-mono); letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
-  .stat span { font-size: 11px; text-transform: uppercase; letter-spacing: .07em; color: var(--muted); }
-  .stat.wide { grid-column: 1 / -1; }
-  .chart { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 14px; display: flex; flex-direction: column; gap: 6px; min-width: 0; }
-  .chart h3 { margin: 0; font: 700 15px var(--f-display); font-stretch: 105%; }
-  .chart p { font-size: 12px; color: var(--muted); margin: 0; }
-  .canvas-box { position: relative; height: 280px; }
+.tabs { display: flex; gap: 8px; overflow-x: auto; scrollbar-width: none; margin-inline: -16px; padding-inline: 16px; scroll-padding-inline: 16px; }
+.tabs::-webkit-scrollbar { display: none; }
+.tab { flex: none; display: inline-flex; align-items: center; gap: 7px; border: 1px solid var(--line); background: transparent; border-radius: 99px; padding: 8px 14px; cursor: pointer; font-weight: 600; font-size: 14px; color: var(--dim); }
+.tab[aria-pressed="true"] { background: var(--chalk); color: var(--asphalt); border-color: var(--chalk); }
+.tab .n { font: 500 11px var(--f-mono); opacity: .7; }
+.tab svg { width: 14px; height: 14px; }
 
-  .toolbar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
-  .toolbar input, .toolbar select { font: 15px var(--f-body); background: var(--surface); color: var(--ink); border: 1px solid var(--line); border-radius: 9px; padding: 9px 11px; }
-  .toolbar input[type=search] { flex: 1 1 200px; min-width: 0; }
-  .chip { display: inline-flex; align-items: center; gap: 6px; font-size: 14px; background: var(--surface); border: 1px solid var(--line); border-radius: 9px; padding: 8px 11px; cursor: pointer; user-select: none; }
-  .chip input { margin: 0; accent-color: var(--accent); }
-  .count { font-size: 13px; color: var(--muted); }
-  :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.hero { display: grid; gap: 10px; }
+.hero h1 { margin: 0; font: 900 clamp(52px, 15vw, 128px)/.86 var(--f-display); text-transform: uppercase; letter-spacing: -.01em; text-wrap: balance; overflow-wrap: anywhere; }
+.hero h1 em { font-style: normal; color: var(--amber); }
+.hero .meta { display: flex; flex-wrap: wrap; gap: 6px 16px; color: var(--dim); font-size: 13px; }
+.hero .meta a { color: var(--chalk); text-underline-offset: 3px; }
+.alert { font-size: 13px; color: var(--warn); background: var(--warn-bg); border-radius: 10px; padding: 8px 12px; }
 
-  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 290px), 1fr)); gap: 12px; }
-  .card { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; overflow: hidden; display: flex; flex-direction: column;
-          color: inherit; text-decoration: none; transition: border-color .15s, transform .15s; min-width: 0; }
-  .card:hover { border-color: var(--accent); transform: translateY(-2px); }
-  .photo { aspect-ratio: 4 / 3; max-width: 100%; background: var(--surface-2); position: relative; overflow: hidden; }
-  .photo img { width: 100%; height: 100%; object-fit: cover; display: block; }
-  .photo .badges { position: absolute; left: 8px; top: 8px; display: flex; gap: 6px; flex-wrap: wrap; }
-  .badge { font: 600 11px var(--f-mono); letter-spacing: .04em; border-radius: 6px; padding: 3px 7px; }
-  .badge.new { background: var(--new-bg); color: var(--new); }
-  .badge.drop { background: var(--deal-bg); color: var(--deal); }
-  .badge.warn { background: var(--warn-bg); color: var(--err); }
-  .delta.warn { color: var(--err); background: var(--warn-bg); }
-  .body { padding: 12px 14px 14px; display: flex; flex-direction: column; gap: 7px; }
-  .top { display: flex; justify-content: space-between; gap: 10px; align-items: baseline; }
-  .name { font: 700 16px var(--f-display); font-stretch: 105%; min-width: 0; overflow-wrap: anywhere; }
-  .price { font: 600 18px var(--f-mono); color: var(--accent); white-space: nowrap; font-variant-numeric: tabular-nums; }
-  .ver { color: var(--muted); font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .row { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
-  .odometer { font: 600 13px var(--f-mono); background: var(--ink); color: var(--bg); border-radius: 4px; padding: 2px 7px; letter-spacing: .06em; font-variant-numeric: tabular-nums; }
-  .tag { font-size: 12px; color: var(--muted); background: var(--surface-2); border-radius: 6px; padding: 2px 8px; }
-  .delta { font: 600 12px var(--f-mono); border-radius: 6px; padding: 2px 8px; }
-  .delta.good { color: var(--deal); background: var(--deal-bg); }
-  .delta.high { color: var(--muted); background: var(--surface-2); }
-  .empty { grid-column: 1 / -1; text-align: center; color: var(--muted); padding: 40px 12px; }
-  .more { align-self: center; font: 600 14px var(--f-body); border: 1px solid var(--line); background: var(--surface); color: var(--ink); border-radius: 9px; padding: 10px 18px; cursor: pointer; }
+/* ---------- tableau de bord ---------- */
+.cluster { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 2fr); gap: 1px; background: var(--line); border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; }
+@media (max-width: 720px) { .cluster { grid-template-columns: 1fr; } }
+.gauge { background: var(--panel); padding: 18px 18px 14px; display: flex; flex-direction: column; align-items: center; gap: 2px; }
+.gauge svg { width: 100%; max-width: 230px; height: auto; overflow: visible; }
+.gauge .lbl { font: 600 11px var(--f-body); letter-spacing: .14em; text-transform: uppercase; color: var(--dim); text-align: center; }
+.readouts { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 1px; background: var(--line); }
+@media (max-width: 1000px) and (min-width: 721px) { .readouts { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 480px) { .readouts { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.readout { background: var(--panel); padding: 14px 16px; display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.readout b { font: 700 clamp(18px, 4.6vw, 24px)/1.1 var(--f-mono); font-stretch: 87.5%; letter-spacing: -.02em; font-variant-numeric: tabular-nums; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.readout span { font: 600 10.5px var(--f-body); letter-spacing: .12em; text-transform: uppercase; color: var(--dim); }
+.readout.good b { color: var(--deal); }
+.readout.hot b { color: var(--new); }
+.readout.bad b { color: var(--warn); }
 
-  @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+/* ---------- sections ---------- */
+.sec-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+h2 { margin: 0; font: 800 clamp(28px, 6vw, 40px)/.95 var(--f-display); text-transform: uppercase; letter-spacing: .01em; }
+h2 small { display: block; font: 500 13px/1.4 var(--f-body); text-transform: none; letter-spacing: 0; color: var(--dim); margin-top: 6px; }
+
+/* podium */
+.podium { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+@media (max-width: 860px) { .podium { display: flex; overflow-x: auto; scroll-snap-type: x mandatory; margin-inline: -16px; padding-inline: 16px; scroll-padding-inline: 16px; scrollbar-width: none; }
+  .podium::-webkit-scrollbar { display: none; } .podium > * { flex: 0 0 min(84%, 340px); scroll-snap-align: start; } }
+.podium .card .photo { aspect-ratio: 16 / 11; }
+.rank { position: absolute; right: 10px; bottom: 6px; z-index: 1; font: 900 64px/1 var(--f-display); color: #fff; text-shadow: 0 2px 14px rgba(0,0,0,.55); }
+
+/* chart */
+.chart { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 16px; display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.legend { display: flex; gap: 14px; flex-wrap: wrap; font-size: 12px; color: var(--dim); }
+.legend i { display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin-right: 6px; vertical-align: -1px; }
+.canvas-box { position: relative; height: 300px; }
+
+/* toolbar */
+.toolbar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.field { font: 15px var(--f-body); background: var(--panel); color: var(--chalk); border: 1px solid var(--line); border-radius: 11px; padding: 10px 12px; min-width: 0; }
+.toolbar .field[type=search] { flex: 1 1 220px; }
+.chip { display: inline-flex; align-items: center; gap: 7px; font-size: 13.5px; font-weight: 600; background: transparent; border: 1px solid var(--line); border-radius: 99px; padding: 8px 13px; cursor: pointer; user-select: none; color: var(--dim); position: relative; }
+.chip input { position: absolute; opacity: 0; width: 1px; height: 1px; }
+.chip:has(input:checked) { background: var(--panel-2); color: var(--chalk); border-color: var(--chalk); }
+.chip:has(input:focus-visible) { outline: 2px solid var(--amber); outline-offset: 2px; }
+.count { font: 500 12px var(--f-mono); color: var(--dim); margin-left: auto; }
+
+/* cartes */
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 280px), 1fr)); gap: 14px; }
+.card { position: relative; background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; display: flex; flex-direction: column;
+        text-decoration: none; color: inherit; transition: transform .2s ease, border-color .2s ease, box-shadow .2s ease; min-width: 0; }
+.card:hover { transform: translateY(-3px); border-color: var(--faint); box-shadow: 0 14px 30px -18px rgba(0,0,0,.6); }
+.card.reveal { animation: rise .45s cubic-bezier(.2,.7,.2,1) both; animation-delay: calc(var(--i, 0) * 40ms); }
+@keyframes rise { from { opacity: .001; transform: translateY(10px); } }
+.photo { position: relative; aspect-ratio: 4 / 3; max-width: 100%; background: var(--panel-2); overflow: hidden; }
+.photo img { width: 100%; height: 100%; object-fit: cover; display: block; transition: transform .5s ease; }
+.card:hover .photo img { transform: scale(1.04); }
+.photo::after { content: ""; position: absolute; inset: auto 0 0; height: 55%; background: linear-gradient(transparent, rgba(0,0,0,.55)); pointer-events: none; }
+.photo .noimg { position: absolute; inset: 0; display: grid; place-items: center; font: 900 42px var(--f-display); color: var(--faint); text-transform: uppercase; }
+.badges { position: absolute; left: 10px; top: 10px; display: flex; gap: 6px; flex-wrap: wrap; z-index: 1; }
+.badge { font: 700 10px/1 var(--f-mono); letter-spacing: .06em; text-transform: uppercase; border-radius: 6px; padding: 5px 7px; }
+.badge.new { background: var(--amber); color: var(--amber-ink); }
+.badge.drop { background: #3ddc97; color: #062b1a; }
+.badge.warn { background: #ff6b5b; color: #2b0904; }
+.photo .plate { position: absolute; left: 10px; bottom: 10px; z-index: 1; }
+.card .body { padding: 13px 14px 15px; display: flex; flex-direction: column; gap: 9px; }
+.title { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.title b { font: 800 22px/1 var(--f-display); text-transform: uppercase; letter-spacing: .01em; overflow-wrap: anywhere; }
+.title span { color: var(--dim); font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.verdict { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 12.5px; }
+.pill { font: 700 11px/1 var(--f-mono); border-radius: 6px; padding: 5px 7px; white-space: nowrap; }
+.pill.good { color: var(--deal); background: var(--deal-bg); }
+.pill.meh { color: var(--dim); background: var(--panel-2); }
+.pill.warn { color: var(--warn); background: var(--warn-bg); }
+.expected { color: var(--dim); font-family: var(--f-mono); font-size: 11px; }
+.odo { display: inline-flex; gap: 2px; }
+.odo i { font: 700 12px/1 var(--f-mono); font-style: normal; background: #0a0b0c; color: #f2f2f2; border-radius: 3px; padding: 4px 3px; min-width: 15px; text-align: center;
+         box-shadow: inset 0 -6px 6px -4px rgba(255,255,255,.12), inset 0 6px 6px -4px rgba(0,0,0,.8); }
+.odo em { font: 600 10px var(--f-body); font-style: normal; color: var(--dim); align-self: center; margin-left: 4px; text-transform: uppercase; letter-spacing: .08em; }
+.specs { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; color: var(--dim); font-size: 12.5px; }
+.specs span { white-space: nowrap; }
+.where { display: flex; justify-content: space-between; gap: 10px; font-size: 12.5px; color: var(--dim); border-top: 1px dashed var(--line); padding-top: 9px; }
+.where span:last-child { text-align: right; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.empty { grid-column: 1 / -1; text-align: center; color: var(--dim); padding: 48px 16px; border: 1px dashed var(--line); border-radius: var(--radius); }
+.more { align-self: center; border: 1px solid var(--line); background: var(--panel); border-radius: 12px; padding: 12px 22px; cursor: pointer; font-weight: 600; }
+
+/* ---------- bouton principal flottant ---------- */
+.fab { position: fixed; z-index: 20; left: 50%; transform: translateX(-50%); bottom: calc(18px + env(safe-area-inset-bottom, 0px));
+       display: inline-flex; align-items: center; gap: 10px; background: var(--amber); color: var(--amber-ink); border: 0; border-radius: 99px;
+       padding: 15px 24px; font: 700 16px var(--f-body); cursor: pointer; white-space: nowrap; box-shadow: 0 12px 30px -10px rgba(255, 176, 32, .55), 0 4px 12px rgba(0,0,0,.3); }
+.fab svg { width: 20px; height: 20px; }
+
+/* ---------- suivi de recherche ---------- */
+.job { position: fixed; z-index: 21; left: max(16px, env(safe-area-inset-left, 0px)); right: max(16px, env(safe-area-inset-right, 0px));
+       bottom: calc(18px + env(safe-area-inset-bottom, 0px)); max-width: 520px; margin: 0 auto; background: var(--panel); border: 1px solid var(--line);
+       border-radius: 18px; padding: 14px 16px; box-shadow: 0 18px 40px -12px rgba(0,0,0,.6); display: flex; flex-direction: column; gap: 10px; }
+.job .row { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+.job strong { font-size: 14px; }
+.job .x { border: 0; background: transparent; color: var(--dim); cursor: pointer; font-size: 13px; text-decoration: underline; }
+.steps { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+.step { display: flex; flex-direction: column; gap: 6px; font-size: 11px; color: var(--faint); }
+.step::before { content: ""; height: 4px; border-radius: 4px; background: var(--line); }
+.step.done { color: var(--dim); } .step.done::before { background: var(--deal); }
+.step.on { color: var(--chalk); } .step.on::before { background: linear-gradient(90deg, var(--line) 0 30%, var(--amber) 30% 70%, var(--line) 70%); background-size: 200% 100%; animation: run 1.2s linear infinite; }
+.step.fail { color: var(--warn); } .step.fail::before { background: var(--warn); }
+@keyframes run { from { background-position: 100% 0; } to { background-position: -100% 0; } }
+.job .detail { font-size: 12.5px; color: var(--dim); }
+.job .detail a { color: var(--chalk); }
+
+/* ---------- feuilles (recherche / clé) ---------- */
+dialog { border: 0; padding: 0; background: transparent; color: var(--chalk); max-width: 100vw; max-height: 100dvh; width: 100%; margin: auto auto 0; }
+@media (min-width: 720px) { dialog { width: 560px; margin: auto; } }
+dialog::backdrop { background: rgba(5, 6, 7, .62); backdrop-filter: blur(3px); -webkit-backdrop-filter: blur(3px); }
+.sheet { background: var(--asphalt-2); border: 1px solid var(--line); border-radius: 22px 22px 0 0; padding: 10px max(18px, env(safe-area-inset-right, 0px)) calc(20px + env(safe-area-inset-bottom, 0px)) max(18px, env(safe-area-inset-left, 0px));
+         display: flex; flex-direction: column; gap: 16px; max-height: 92dvh; overflow-y: auto; }
+@media (min-width: 720px) { .sheet { border-radius: 22px; padding: 20px 24px 24px; } }
+dialog[open] .sheet { animation: up .28s cubic-bezier(.2,.8,.2,1); }
+@keyframes up { from { transform: translateY(24px); opacity: .4; } }
+.grabber { width: 40px; height: 4px; border-radius: 4px; background: var(--line); align-self: center; }
+@media (min-width: 720px) { .grabber { display: none; } }
+.sheet h3 { margin: 0; font: 800 32px/.95 var(--f-display); text-transform: uppercase; }
+.sheet p { margin: 0; color: var(--dim); font-size: 14px; }
+.form { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.form .full { grid-column: 1 / -1; }
+.lab, .form label { display: flex; flex-direction: column; gap: 6px; font: 600 11px var(--f-body); letter-spacing: .1em; text-transform: uppercase; color: var(--dim); min-width: 0; }
+.form .field, .sheet .field { width: 100%; font-size: 16px; text-transform: none; letter-spacing: 0; font-weight: 400; }
+.seg { display: flex; flex-wrap: wrap; gap: 6px; }
+.form .seg label { flex-direction: row; text-transform: none; letter-spacing: 0; font-size: 14px; font-weight: 600; color: var(--dim); border: 1px solid var(--line); border-radius: 99px; padding: 8px 13px; cursor: pointer; position: relative; }
+.seg input { position: absolute; opacity: 0; width: 1px; height: 1px; }
+.form .seg label:has(input:checked) { background: var(--chalk); color: var(--asphalt); border-color: var(--chalk); }
+.seg label:has(input:focus-visible) { outline: 2px solid var(--amber); outline-offset: 2px; }
+.form label.toggle { flex-direction: row; align-items: center; justify-content: space-between; gap: 12px; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; text-transform: none; letter-spacing: 0; font-size: 14px; color: var(--chalk); cursor: pointer; }
+.toggle small { display: block; color: var(--dim); font-weight: 400; font-size: 12.5px; margin-top: 2px; }
+.toggle input { appearance: none; -webkit-appearance: none; flex: none; width: 46px; height: 28px; border-radius: 99px; background: var(--line); position: relative; cursor: pointer; transition: background .2s; margin: 0; }
+.toggle input::after { content: ""; position: absolute; top: 3px; left: 3px; width: 22px; height: 22px; border-radius: 50%; background: var(--chalk); transition: transform .2s; }
+.toggle input:checked { background: var(--amber); }
+.toggle input:checked::after { transform: translateX(18px); background: var(--amber-ink); }
+.actions { display: flex; gap: 10px; }
+.btn { flex: 1; border: 1px solid var(--line); background: var(--panel); border-radius: 13px; padding: 14px; font-weight: 700; cursor: pointer; text-align: center; text-decoration: none; }
+.btn.go { background: var(--amber); color: var(--amber-ink); border-color: var(--amber); }
+.btn:disabled { opacity: .5; cursor: default; }
+.formmsg { font-size: 13px; color: var(--warn); min-height: 1em; }
+.formmsg.ok { color: var(--deal); }
+.howto { margin: 0; padding-left: 20px; display: grid; gap: 8px; font-size: 14px; color: var(--dim); }
+.howto b { color: var(--chalk); }
+.howto a { color: var(--amber); }
+.code { font: 500 12px var(--f-mono); background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 1px 6px; color: var(--chalk); }
+
+[hidden] { display: none !important; }
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
 </style>
 </head>
 <body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="stars" viewBox="0 0 24 24"><g fill="#ffd500">
+    <circle cx="12" cy="3" r="1.3"/><circle cx="16.5" cy="4.2" r="1.3"/><circle cx="19.8" cy="7.5" r="1.3"/><circle cx="21" cy="12" r="1.3"/>
+    <circle cx="19.8" cy="16.5" r="1.3"/><circle cx="16.5" cy="19.8" r="1.3"/><circle cx="12" cy="21" r="1.3"/><circle cx="7.5" cy="19.8" r="1.3"/>
+    <circle cx="4.2" cy="16.5" r="1.3"/><circle cx="3" cy="12" r="1.3"/><circle cx="4.2" cy="7.5" r="1.3"/><circle cx="7.5" cy="4.2" r="1.3"/></g></symbol>
+  <symbol id="i-key" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="7.5" cy="15.5" r="4.5"/><path d="M10.7 12.3 20 3m-3 3 3 3m-6 0 2 2"/></g></symbol>
+  <symbol id="i-search" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m20 20-4.8-4.8"/></g></symbol>
+  <symbol id="i-eye" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/></g></symbol>
+</svg>
+
 <div class="wrap">
-  <header>
-    <h1>AutoScout Analyseur <span class="odo">€/KM</span></h1>
-    <div class="meta" id="meta">Chargement…</div>
-    <div class="err" id="err" hidden></div>
+  <header class="topbar">
+    <a class="brand" href="#" aria-label="AutoScout Radar">
+      <span class="plate lg"><span class="eu"><svg><use href="#stars"/></svg><b>B</b></span><span class="txt">1-ASC-024</span></span>
+      <small>Radar<br>d'occasions</small>
+    </a>
+    <button class="icon-btn" id="keyBtn" type="button" aria-label="Clé GitHub"><svg><use href="#i-key"/></svg><span class="pip" id="keyPip"></span></button>
   </header>
 
-  <nav class="tabs" id="tabs" aria-label="Recherches"></nav>
+  <nav class="tabs" id="tabs" aria-label="Recherches enregistrées"></nav>
 
-  <section class="dash">
-    <div class="stats" id="stats"></div>
-    <div class="chart">
-      <h3>Prix selon le kilométrage</h3>
-      <p>Les points verts sont les bonnes affaires : au moins 15 % sous le prix attendu pour leur âge et leurs km. Touche un point pour ouvrir l'annonce.</p>
-      <div class="canvas-box"><canvas id="chart" aria-label="Nuage de points prix en fonction du kilométrage"></canvas></div>
-    </div>
+  <section class="hero">
+    <h1 id="heroTitle">Chargement</h1>
+    <div class="meta" id="meta"></div>
+    <div class="alert" id="alert" hidden></div>
   </section>
 
-  <section style="display:flex;flex-direction:column;gap:12px">
+  <section class="cluster" aria-label="Tableau de bord">
+    <div class="gauge">
+      <svg viewBox="0 0 220 168" role="img" aria-labelledby="gaugeTxt">
+        <path d="M20 118 A90 90 0 0 1 200 118" fill="none" stroke="var(--line)" stroke-width="14" stroke-linecap="round"/>
+        <path id="gaugeArc" d="M20 118 A90 90 0 0 1 200 118" fill="none" stroke="var(--deal)" stroke-width="14" stroke-linecap="round" pathLength="100" stroke-dasharray="0 100"/>
+        <g id="ticks" stroke="var(--faint)" stroke-width="2"></g>
+        <line id="needle" x1="110" y1="118" x2="110" y2="50" stroke="var(--amber)" stroke-width="3" stroke-linecap="round" transform="rotate(-90 110 118)"/>
+        <circle cx="110" cy="118" r="7" fill="var(--amber)"/>
+        <text id="gaugeTxt" x="110" y="162" text-anchor="middle" fill="var(--chalk)" font-family="Martian Mono, monospace" font-weight="700" font-size="30">—</text>
+      </svg>
+      <span class="lbl" id="gaugeLbl">de bonnes affaires</span>
+    </div>
+    <div class="readouts" id="readouts"></div>
+  </section>
+
+  <section style="display:flex;flex-direction:column;gap:14px" id="podiumSec">
+    <div class="sec-head"><h2>Le podium<small>Les trois annonces les plus en dessous du prix attendu pour leur âge et leurs km.</small></h2></div>
+    <div class="podium" id="podium"></div>
+  </section>
+
+  <section class="chart">
+    <div class="sec-head"><h2>Prix × kilomètres<small>Touche un point pour ouvrir l'annonce.</small></h2></div>
+    <div class="legend"><span><i style="background:var(--deal)"></i>Bonne affaire</span><span><i style="background:var(--dot)"></i>Autre annonce</span><span><i style="background:var(--amber);border-radius:2px;height:2px;width:14px;vertical-align:3px"></i>Tendance</span></div>
+    <div class="canvas-box"><canvas id="chart" aria-label="Nuage de points prix en fonction du kilométrage"></canvas></div>
+  </section>
+
+  <section style="display:flex;flex-direction:column;gap:14px">
+    <div class="sec-head"><h2>Toutes les annonces</h2></div>
     <div class="toolbar">
-      <input id="q" type="search" placeholder="Filtrer : version, ville, garage…">
-      <select id="order" aria-label="Trier">
+      <input class="field" id="q" type="search" placeholder="Version, ville, garage…" aria-label="Filtrer">
+      <select class="field" id="order" aria-label="Trier">
         <option value="deal">Meilleures affaires</option>
-        <option value="new">Plus récentes sur le site</option>
+        <option value="new">Arrivées récemment</option>
         <option value="price">Prix croissant</option>
         <option value="-price">Prix décroissant</option>
         <option value="km">Km croissant</option>
-        <option value="-year">Année récente</option>
+        <option value="-year">Plus récentes</option>
       </select>
-      <label class="chip"><input type="checkbox" id="onlyNew"> Nouvelles</label>
-      <label class="chip"><input type="checkbox" id="onlyDeals"> Bonnes affaires</label>
-      <label class="chip"><input type="checkbox" id="hideSus" checked> Masquer les suspectes</label>
+    </div>
+    <div class="toolbar">
+      <label class="chip"><input type="checkbox" id="onlyDeals">Bonnes affaires</label>
+      <label class="chip"><input type="checkbox" id="onlyNew">Nouvelles</label>
+      <label class="chip"><input type="checkbox" id="onlyDrop">Prix en baisse</label>
+      <label class="chip"><input type="checkbox" id="hideSus" checked>Sans les suspectes</label>
       <span class="count" id="count"></span>
     </div>
     <div class="grid" id="grid"></div>
-    <button class="more" id="more" hidden>Voir plus</button>
+    <button class="more" id="more" type="button" hidden>Voir plus</button>
   </section>
 </div>
 
+<button class="fab" id="fab" type="button"><svg><use href="#i-search"/></svg>Nouvelle recherche</button>
+
+<div class="job" id="job" hidden role="status" aria-live="polite">
+  <div class="row"><strong id="jobTitle">Recherche en cours</strong><button class="x" id="jobClose" type="button">Masquer</button></div>
+  <div class="steps" id="jobSteps">
+    <span class="step" data-s="0">Envoi</span><span class="step" data-s="1">Scraping</span><span class="step" data-s="2">Publication</span><span class="step" data-s="3">Prêt</span>
+  </div>
+  <div class="detail" id="jobDetail"></div>
+</div>
+
+<!-- Feuille : nouvelle recherche -->
+<dialog id="searchDlg" aria-labelledby="searchTitle">
+  <form class="sheet" id="searchForm" method="dialog">
+    <span class="grabber"></span>
+    <h3 id="searchTitle">Nouvelle recherche</h3>
+    <p>Le scraping tourne sur GitHub et prend 1 à 4 minutes. Les résultats s'affichent ici dès qu'ils sont prêts.</p>
+    <div class="form">
+      <label>Marque<input class="field" name="make" id="f-make" list="makes" placeholder="volkswagen" autocomplete="off" autocapitalize="none" required></label>
+      <label>Modèle<input class="field" name="model" id="f-model" placeholder="polo" autocomplete="off" autocapitalize="none"></label>
+      <label>Prix max (€)<input class="field" name="price_to" id="f-price" inputmode="numeric" placeholder="15000"></label>
+      <label>Km max<input class="field" name="km_to" id="f-km" inputmode="numeric" placeholder="150000"></label>
+      <label>Année min<input class="field" name="year_from" id="f-year" inputmode="numeric" placeholder="2015"></label>
+      <label>Pays<select class="field" name="country" id="f-country">
+        <option value="B">Belgique</option><option value="B,L">Belgique + Lux.</option><option value="B,NL,L">Benelux</option>
+        <option value="B,D,F,NL,L">BE + DE + FR + NL + LU</option><option value="D">Allemagne</option><option value="F">France</option><option value="NL">Pays-Bas</option>
+      </select></label>
+      <div class="full lab">Carburant
+        <div class="seg">
+          <label><input type="radio" name="fuel" value="" checked>Tous</label><label><input type="radio" name="fuel" value="B">Essence</label>
+          <label><input type="radio" name="fuel" value="D">Diesel</label><label><input type="radio" name="fuel" value="2">Hybride</label><label><input type="radio" name="fuel" value="E">Électrique</label>
+        </div>
+      </div>
+      <div class="full lab">Boîte
+        <div class="seg">
+          <label><input type="radio" name="gear" value="" checked>Toutes</label><label><input type="radio" name="gear" value="M">Manuelle</label><label><input type="radio" name="gear" value="A">Automatique</label>
+        </div>
+      </div>
+      <label>Code postal<input class="field" name="zip" id="f-zip" inputmode="numeric" placeholder="6110"></label>
+      <label>Rayon<select class="field" name="radius" id="f-radius"><option value="">Tout le pays</option><option>25</option><option>50</option><option>100</option><option>200</option></select></label>
+      <label class="full">Nom (optionnel)<input class="field" name="name" id="f-name" placeholder="Polo pas chère près de chez moi"></label>
+      <label class="toggle full"><span>Surveiller toutes les 6 h<small>Ajoute la recherche au scraping automatique, avec les badges « nouveau » et les baisses de prix.</small></span><input type="checkbox" name="watch" id="f-watch"></label>
+    </div>
+    <div class="formmsg" id="formMsg" role="alert"></div>
+    <div class="actions">
+      <button class="btn" type="button" id="searchCancel">Annuler</button>
+      <button class="btn go" type="submit" id="searchGo">Lancer la recherche</button>
+    </div>
+  </form>
+</dialog>
+
+<!-- Feuille : clé GitHub -->
+<dialog id="keyDlg" aria-labelledby="keyTitle">
+  <form class="sheet" id="keyForm" method="dialog">
+    <span class="grabber"></span>
+    <h3 id="keyTitle">Clé GitHub</h3>
+    <p>Pour lancer une recherche depuis ce site, il lui faut une clé qui a le droit de démarrer le workflow de ton repo. Elle reste enregistrée sur cet appareil uniquement.</p>
+    <ol class="howto">
+      <li>Ouvre <a href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noopener">github.com → nouveau token</a>.</li>
+      <li>Nom : <span class="code">autoscout-radar</span>, expiration au choix.</li>
+      <li><b>Repository access</b> → <i>Only select repositories</i> → <b id="repoName">ton repo</b>.</li>
+      <li><b>Permissions</b> → Repository → <b>Actions : Read and write</b>. Rien d'autre.</li>
+      <li><b>Generate token</b>, copie-le et colle-le ici.</li>
+    </ol>
+    <label class="lab" for="tokenInput">Token</label>
+    <input class="field" id="tokenInput" type="password" placeholder="github_pat_…" autocomplete="off" spellcheck="false" style="font-family:var(--f-mono);font-size:14px;margin-top:-10px">
+    <div class="formmsg" id="keyMsg" role="alert"></div>
+    <div class="actions">
+      <button class="btn" type="button" id="keyForget">Oublier la clé</button>
+      <button class="btn go" type="submit" id="keySave">Vérifier et enregistrer</button>
+    </div>
+  </form>
+</dialog>
+
+<datalist id="makes">
+  <option value="volkswagen"><option value="audi"><option value="bmw"><option value="mercedes-benz"><option value="skoda"><option value="seat"><option value="cupra">
+  <option value="peugeot"><option value="citroen"><option value="renault"><option value="dacia"><option value="opel"><option value="ford"><option value="fiat">
+  <option value="toyota"><option value="hyundai"><option value="kia"><option value="mazda"><option value="nissan"><option value="volvo"><option value="mini"><option value="tesla"><option value="porsche">
+</datalist>
+
 <script>
+/* ============================================================ utilitaires */
 const $ = s => document.querySelector(s);
 const nf = new Intl.NumberFormat('fr-BE');
 const fmt = n => n == null || !isFinite(n) ? '—' : nf.format(Math.round(n));
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const median = a => { if (!a.length) return null; const s = [...a].sort((x, y) => x - y), m = s.length >> 1; return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2; };
 const ago = iso => { if (!iso) return '?'; const m = (Date.now() - new Date(iso)) / 60000;
-  return m < 60 ? `il y a ${Math.max(1, Math.round(m))} min` : m < 1440 ? `il y a ${Math.round(m / 60)} h` : `il y a ${Math.round(m / 1440)} j`; };
-const LABELS = { 'top-price': ['très bon prix', 'good'], 'good-price': ['bon prix', 'good'], 'fair-price': ['prix correct', 'high'],
-                 'somewhat-expensive': ['un peu cher', 'high'], 'expensive': ['cher', 'high'], 'increased-price': ['cher', 'high'],
-                 'high-price': ['cher', 'high'], 'toolow-price': ['prix anormal', 'warn'] };
-const isDeal = c => !c.suspicious && ((c.delta != null && c.delta <= -0.15) || (c.price_label || '').trim() === 'top-price');
+  return m < 1 ? "à l'instant" : m < 60 ? `il y a ${Math.round(m)} min` : m < 1440 ? `il y a ${Math.round(m / 60)} h` : `il y a ${Math.round(m / 1440)} j`; };
+const store = { get(k) { try { return localStorage.getItem(k); } catch { return null; } },
+                set(k, v) { try { v == null ? localStorage.removeItem(k) : localStorage.setItem(k, v); } catch {} } };
+const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-let index = [], current = null, cars = [], fit = null, chart = null, shown = 30;
+const LABELS = { 'top-price': ['très bon prix AS24', 'good'], 'good-price': ['bon prix AS24', 'good'], 'fair-price': ['prix correct AS24', 'meh'],
+                 'somewhat-expensive': ['un peu cher AS24', 'meh'], 'expensive': ['cher AS24', 'meh'], 'toolow-price': ['prix anormal', 'warn'] };
+const label = c => (c.price_label || '').trim();
+const isDeal = c => !c.suspicious && ((c.delta != null && c.delta <= -0.15) || label(c) === 'top-price');
+const plate = (txt, cls = '') => `<span class="plate ${cls}"><span class="eu"><svg><use href="#stars"/></svg><b>B</b></span><span class="txt">${txt}</span></span>`;
+const odo = km => { if (km == null) return ''; const s = String(Math.min(km, 999999)).padStart(6, '0');
+  return `<span class="odo" aria-label="${fmt(km)} km">${[...s].map(d => `<i>${d}</i>`).join('')}<em>km</em></span>`; };
+
+/* Repo GitHub déduit de l'adresse GitHub Pages (tarkiom.github.io/AutoScout-scrapper) */
+const onPages = location.hostname.endsWith('github.io');
+const OWNER = onPages ? location.hostname.split('.')[0] : 'Tarkiom';
+const REPO = onPages ? (location.pathname.split('/')[1] || 'AutoScout-scrapper') : 'AutoScout-scrapper';
+const API = `https://api.github.com/repos/${OWNER}/${REPO}`;
+$('#repoName').textContent = `${OWNER}/${REPO}`;
+
+/* ============================================================ données */
+let index = [], current = null, cars = [], trend = null, chart = null, shown = 24, currentSlug = null;
 
 async function getJSON(url) {
-  const r = await fetch(url + '?t=' + Date.now(), { cache: 'no-store' });
-  if (!r.ok) throw new Error(`${url} : HTTP ${r.status}`);
+  const r = await fetch(`${url}?t=${Date.now()}`, { cache: 'no-store' });
+  if (!r.ok) throw new Error(`HTTP ${r.status}`);
   return r.json();
 }
 
-async function boot() {
-  try { index = (await getJSON('data/index.json')).searches || []; }
-  catch { $('#meta').textContent = 'Pas encore de résultats. Lance le workflow « Scraper AutoScout24 » dans l\'onglet Actions du repo.'; return; }
-  if (!index.length) { $('#meta').textContent = 'Pas encore de résultats.'; return; }
-  const wanted = location.hash.slice(1);
-  $('#tabs').innerHTML = index.map(s => `<button data-slug="${esc(s.slug)}">${esc(s.label)}<span class="n">${s.count}</span></button>`).join('');
-  $('#tabs').onclick = e => { const b = e.target.closest('button'); if (b) load(b.dataset.slug); };
-  load(index.some(s => s.slug === wanted) ? wanted : index[0].slug);
+async function loadIndex() {
+  try { index = (await getJSON('data/index.json')).searches || []; } catch { index = []; }
+  renderTabs();
+  return index;
 }
+
+function renderTabs() {
+  $('#tabs').innerHTML = index.map(s => `<button class="tab" type="button" data-slug="${esc(s.slug)}" aria-pressed="${s.slug === currentSlug}">${
+      s.watched ? '<svg role="img" aria-label="surveillée"><use href="#i-eye"/></svg>' : ''}${esc(s.label)}<span class="n">${s.count ?? 0}</span></button>`).join('');
+}
+$('#tabs').addEventListener('click', e => { const b = e.target.closest('.tab'); if (b) load(b.dataset.slug); });
 
 async function load(slug) {
-  document.querySelectorAll('#tabs button').forEach(b => b.setAttribute('aria-pressed', b.dataset.slug === slug));
-  history.replaceState(null, '', '#' + slug);
+  currentSlug = slug;
+  renderTabs();
+  try { history.replaceState(null, '', '#' + slug); } catch {}
   let d;
-  try { d = await getJSON(`data/${slug}.json`); } catch (e) { $('#err').hidden = false; $('#err').textContent = e.message; return; }
-  current = d; cars = d.listings || []; shown = 30;
-  const fitPts = cars.filter(c => c.price && c.km != null);
-  fit = null;
-  if (fitPts.length >= 5) {
-    const n = fitPts.length, mx = fitPts.reduce((s, c) => s + c.km, 0) / n, my = fitPts.reduce((s, c) => s + c.price, 0) / n;
-    let num = 0, den = 0; for (const c of fitPts) { num += (c.km - mx) * (c.price - my); den += (c.km - mx) ** 2; }
-    const b = den ? num / den : 0; fit = { b, predict: km => my - b * mx + b * km };
+  try { d = await getJSON(`data/${slug}.json`); }
+  catch { $('#alert').hidden = false; $('#alert').textContent = 'Impossible de charger cette recherche. Recharge la page dans une minute.'; return; }
+  current = d; cars = d.listings || []; shown = 24;
+
+  const pts = cars.filter(c => c.price && c.km != null && !c.suspicious);
+  trend = null;
+  if (pts.length >= 5) {
+    const n = pts.length, mx = pts.reduce((s, c) => s + c.km, 0) / n, my = pts.reduce((s, c) => s + c.price, 0) / n;
+    let num = 0, den = 0; for (const c of pts) { num += (c.km - mx) * (c.price - my); den += (c.km - mx) ** 2; }
+    const b = den ? num / den : 0; trend = { b, at: km => my + b * (km - mx) };
   }
-  const covered = d.total_announced ? ` sur ${fmt(d.total_announced)} annoncées` : '';
-  $('#meta').innerHTML = `<span>Mis à jour ${ago(d.updated)}</span><span>${cars.length} annonces${covered}</span>` +
-    (d.url ? `<a href="${esc(d.url)}" target="_blank" rel="noopener">Voir sur AutoScout24</a>` : '');
-  $('#err').hidden = !d.last_error;
-  $('#err').textContent = d.last_error ? `Dernier passage ${ago(d.last_attempt)} : ${d.last_error}` : '';
-  renderStats(); drawChart(); drawGrid();
+
+  const words = (d.label || slug).split(' · ')[0].trim().split(/\s+/);
+  $('#heroTitle').innerHTML = words.length > 1 ? `${esc(words.slice(0, -1).join(' '))} <em>${esc(words.at(-1))}</em>` : `<em>${esc(words[0])}</em>`;
+  const extra = (d.label || '').split(' · ').slice(1);
+  $('#meta').innerHTML = [
+    `<span>Mis à jour ${ago(d.updated)}</span>`,
+    `<span>${fmt(cars.length)} annonces${d.total_announced ? ` sur ${fmt(d.total_announced)}` : ''}</span>`,
+    ...extra.map(f => `<span>${esc(f)}</span>`),
+    d.url ? `<a href="${esc(d.url)}" target="_blank" rel="noopener">Voir sur AutoScout24 ↗</a>` : '',
+  ].join('');
+  $('#alert').hidden = !d.last_error;
+  $('#alert').textContent = d.last_error ? `Dernier passage ${ago(d.last_attempt)} : ${d.last_error}` : '';
+
+  renderCluster(); renderPodium(); drawChart(); drawGrid(true);
 }
 
-function renderStats() {
-  const prices = cars.map(c => c.price).filter(Boolean), kms = cars.map(c => c.km).filter(v => v != null), years = cars.map(c => c.year).filter(Boolean);
-  const stat = (v, l, cls = '') => `<div class="stat ${cls}"><b>${v}</b><span>${l}</span></div>`;
-  $('#stats').innerHTML =
-    stat(cars.length, 'annonces') +
-    stat(cars.filter(c => c.is_new).length, 'nouvelles depuis le dernier passage') +
-    stat(prices.length ? fmt(median(prices)) + ' €' : '—', 'prix médian') +
-    stat(cars.filter(isDeal).length, 'bonnes affaires') +
-    stat(cars.filter(c => c.suspicious).length, 'suspectes (épave, export…)') +
-    stat(kms.length ? fmt(median(kms)) : '—', 'km médian') +
-    stat(years.length ? Math.round(median(years)) : '—', 'année médiane') +
-    stat(fit ? '−' + fmt(Math.abs(fit.b) * 10000) + ' €' : '—', 'décote par 10 000 km');
+/* ============================================================ tableau de bord */
+(function ticks() {
+  let h = '';
+  for (let i = 0; i <= 10; i++) { const a = Math.PI * (1 - i / 10), r1 = 72, r2 = i % 5 ? 66 : 62;
+    h += `<line x1="${(110 + r1 * Math.cos(a)).toFixed(1)}" y1="${(118 - r1 * Math.sin(a)).toFixed(1)}" x2="${(110 + r2 * Math.cos(a)).toFixed(1)}" y2="${(118 - r2 * Math.sin(a)).toFixed(1)}"/>`; }
+  $('#ticks').innerHTML = h;
+})();
+
+function renderCluster() {
+  const ok = cars.filter(c => !c.suspicious);
+  const deals = cars.filter(isDeal).length;
+  const share = ok.length ? deals / ok.length : 0;
+  $('#gaugeArc').setAttribute('stroke-dasharray', `${Math.round(share * 100)} 100`);
+  $('#needle').setAttribute('transform', `rotate(${(-90 + share * 180).toFixed(1)} 110 118)`);
+  $('#gaugeTxt').textContent = ok.length ? `${Math.round(share * 100)} %` : '—';
+  $('#gaugeLbl').textContent = `${deals} bonne${deals > 1 ? 's' : ''} affaire${deals > 1 ? 's' : ''}`;
+
+  const prices = ok.map(c => c.price).filter(Boolean), kms = ok.map(c => c.km).filter(v => v != null), years = ok.map(c => c.year).filter(Boolean);
+  const nNew = cars.filter(c => c.is_new).length, nDrop = cars.filter(c => c.price_drop).length, nSus = cars.length - ok.length;
+  const r = (v, l, cls = '') => `<div class="readout ${cls}"><b>${v}</b><span>${l}</span></div>`;
+  $('#readouts').innerHTML =
+    r(prices.length ? fmt(median(prices)) + ' €' : '—', 'prix médian') +
+    r(prices.length ? fmt(Math.min(...prices)) + ' €' : '—', 'le moins cher') +
+    r(fmt(median(kms)), 'km médian') +
+    r(years.length ? Math.round(median(years)) : '—', 'année médiane') +
+    r(nNew, 'nouvelles', nNew ? 'hot' : '') +
+    r(nDrop, 'prix en baisse', nDrop ? 'good' : '') +
+    r(trend ? '−' + fmt(Math.abs(trend.b) * 10000) + ' €' : '—', 'par 10 000 km') +
+    r(nSus, 'suspectes', nSus ? 'bad' : '');
 }
 
+/* ============================================================ cartes */
+function card(c, i, opts = {}) {
+  const d = c.delta, lab = LABELS[label(c)];
+  const verdict = d == null ? '' : d <= -0.03 ? `<span class="pill good">${Math.round(d * 100)} %</span>` : d >= 0.03 ? `<span class="pill meh">+${Math.round(d * 100)} %</span>` : '<span class="pill meh">dans la moyenne</span>';
+  const img = c.image ? c.image.replace(/\/\d+x\d+\.webp$/, opts.big ? '/720x540.webp' : '/480x360.webp') : '';
+  const initial = (c.model || c.make || '?').slice(0, 1);
+  return `<a class="card ${opts.reveal ? 'reveal' : ''}" style="--i:${i % 12}" href="${esc(c.url)}" target="_blank" rel="noopener">
+    <div class="photo">
+      ${img ? `<img src="${esc(img)}" alt="" loading="lazy" decoding="async" onerror="this.onerror=null;this.src='${esc(c.image)}'">` : `<span class="noimg">${esc(initial)}</span>`}
+      <div class="badges">${c.suspicious ? '<span class="badge warn">À vérifier</span>' : ''}${c.is_new ? '<span class="badge new">Nouveau</span>' : ''}${c.price_drop ? `<span class="badge drop">−${fmt(c.price_drop)} €</span>` : ''}</div>
+      ${plate(`${fmt(c.price)} €`)}
+      ${opts.rank ? `<span class="rank">${opts.rank}</span>` : ''}
+    </div>
+    <div class="body">
+      <div class="title"><b>${esc(c.make)} ${esc(c.model)}</b><span>${esc(c.version) || '&nbsp;'}</span></div>
+      <div class="verdict">${verdict}${c.expected_price ? `<span class="expected">attendu ≈ ${fmt(c.expected_price)} €</span>` : ''}${lab ? `<span class="pill ${lab[1]}">${lab[0]}</span>` : ''}</div>
+      <div class="specs">${odo(c.km)}<span>${esc(c.first_reg || c.year || '')}</span><span>${esc(c.fuel || '')}</span><span>${esc((c.gear || '').replace(/^Boîte /, ''))}</span><span>${esc(c.power || '')}</span></div>
+      <div class="where"><span>${esc([c.zip, c.city].filter(Boolean).join(' '))}</span><span>${esc(c.seller_name || (c.seller === 'Private' ? 'Particulier' : ''))}</span></div>
+    </div></a>`;
+}
+
+function renderPodium() {
+  const top = cars.filter(isDeal).filter(c => c.delta != null).sort((a, b) => a.delta - b.delta).slice(0, 3);
+  $('#podiumSec').hidden = !top.length;
+  $('#podium').innerHTML = top.map((c, i) => card(c, i, { big: true, rank: i + 1, reveal: !reduced })).join('');
+}
+
+const FILTERS = ['#q', '#order', '#onlyNew', '#onlyDeals', '#onlyDrop', '#hideSus'];
+function drawGrid(reveal = false) {
+  const q = $('#q').value.trim().toLowerCase(), order = $('#order').value;
+  const list = cars.filter(c => (!q || [c.make, c.model, c.version, c.city, c.zip, c.fuel, c.gear, c.first_reg, c.seller_name].join(' ').toLowerCase().includes(q))
+    && (!$('#onlyNew').checked || c.is_new) && (!$('#onlyDeals').checked || isDeal(c)) && (!$('#onlyDrop').checked || c.price_drop)
+    && (!$('#hideSus').checked || !c.suspicious));
+  const key = { deal: c => c.suspicious ? 8 : (c.delta ?? 9), new: c => -new Date(c.first_seen || 0), price: c => c.price ?? Infinity,
+                '-price': c => -(c.price ?? 0), km: c => c.km ?? Infinity, '-year': c => -(c.year ?? 0) }[order];
+  list.sort((a, b) => key(a) - key(b));
+  $('#count').textContent = `${fmt(list.length)} / ${fmt(cars.length)}`;
+  if (!list.length) {
+    $('#grid').innerHTML = `<div class="empty">${cars.length ? 'Aucune annonce ne correspond à ces filtres.' : 'Aucune annonce pour cette recherche pour le moment.'}</div>`;
+    $('#more').hidden = true; return;
+  }
+  $('#grid').innerHTML = list.slice(0, shown).map((c, i) => card(c, i, { reveal: reveal && !reduced })).join('');
+  $('#more').hidden = list.length <= shown;
+  $('#more').textContent = `Voir plus · ${fmt(list.length - shown)} restantes`;
+}
+FILTERS.forEach(s => ['input', 'change'].forEach(ev => $(s).addEventListener(ev, () => { shown = 24; drawGrid(); })));
+$('#more').onclick = () => { shown += 24; drawGrid(); };
+
+/* ============================================================ graphique */
 const cssVar = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
 function drawChart() {
   if (!window.Chart) return;
-  const pts = cars.filter(c => c.price && c.km != null).map(c => ({ x: c.km, y: c.price, c }));
-  const xs = pts.map(p => p.x), lo = Math.min(...xs), hi = Math.max(...xs), ink = cssVar('--muted'), grid = cssVar('--line');
-  const ds = [{ type: 'scatter', data: pts, pointRadius: 4, pointHoverRadius: 7, borderWidth: 0,
-                backgroundColor: pts.map(p => isDeal(p.c) ? cssVar('--dot-deal') : cssVar('--dot')) }];
-  if (fit && pts.length) ds.push({ type: 'line', data: [{ x: lo, y: fit.predict(lo) }, { x: hi, y: fit.predict(hi) }],
-    borderColor: cssVar('--trend'), borderDash: [6, 5], borderWidth: 1.5, pointRadius: 0 });
-  const axis = t => ({ title: { display: true, text: t, color: ink }, ticks: { color: ink, callback: v => fmt(v), font: { family: 'IBM Plex Mono', size: 11 } },
-                       grid: { color: grid }, border: { color: grid } });
+  const pts = cars.filter(c => c.price && c.km != null && !c.suspicious).map(c => ({ x: c.km, y: c.price, c }));
+  const deal = cssVar('--deal'), dot = cssVar('--dot'), ink = cssVar('--dim'), grid = cssVar('--line');
+  const xs = pts.map(p => p.x), lo = Math.min(...xs), hi = Math.max(...xs);
+  const ds = [{ type: 'scatter', order: 2, data: pts, pointRadius: pts.map(p => isDeal(p.c) ? 5 : 3.2), pointHoverRadius: 8, borderWidth: 0,
+                backgroundColor: pts.map(p => isDeal(p.c) ? deal : dot) }];
+  if (trend && pts.length) ds.push({ type: 'line', order: 1, data: [{ x: lo, y: trend.at(lo) }, { x: hi, y: trend.at(hi) }], borderColor: cssVar('--amber'), borderWidth: 2, pointRadius: 0 });
+  const axis = t => ({ title: { display: true, text: t, color: ink, font: { family: 'Instrument Sans', size: 12, weight: '600' } },
+    ticks: { color: ink, maxTicksLimit: 6, callback: v => v >= 1000 ? `${Math.round(v / 1000)}k` : v, font: { family: 'Martian Mono', size: 10 } },
+    grid: { color: grid, drawTicks: false }, border: { display: false } });
   const opts = { maintainAspectRatio: false, animation: false, scales: { x: axis('Kilométrage'), y: axis('Prix (€)') },
-    plugins: { legend: { display: false }, tooltip: { callbacks: { label: ctx => { const c = ctx.raw.c; return c ? `${c.year ?? ''} · ${fmt(c.price)} € · ${fmt(c.km)} km` : 'Tendance'; } } } },
+    plugins: { legend: { display: false },
+      tooltip: { displayColors: false, padding: 10, titleFont: { family: 'Instrument Sans', weight: '700' }, bodyFont: { family: 'Martian Mono', size: 11 },
+        callbacks: { title: items => { const c = items[0].raw.c; return c ? `${c.make} ${c.model} · ${c.year ?? ''}` : 'Tendance'; },
+                     label: ctx => { const c = ctx.raw.c; return c ? [`${fmt(c.price)} € · ${fmt(c.km)} km`, c.delta != null ? `${Math.round(c.delta * 100)} % vs attendu` : ''] : ''; } } } },
     onClick: (_, els) => { const el = els[0]; const c = el && chart.data.datasets[el.datasetIndex].data[el.index].c; if (c?.url) window.open(c.url, '_blank', 'noopener'); } };
   if (chart) { chart.data.datasets = ds; chart.options = opts; chart.update('none'); }
   else chart = new Chart($('#chart'), { data: { datasets: ds }, options: opts });
 }
 matchMedia('(prefers-color-scheme: dark)').addEventListener('change', drawChart);
 
-function drawGrid() {
-  const q = $('#q').value.trim().toLowerCase(), order = $('#order').value;
-  let list = cars.filter(c => (!q || [c.make, c.model, c.version, c.city, c.zip, c.fuel, c.gear, c.first_reg, c.seller_name].join(' ').toLowerCase().includes(q))
-    && (!$('#onlyNew').checked || c.is_new) && (!$('#onlyDeals').checked || isDeal(c)) && (!$('#hideSus').checked || !c.suspicious));
-  const key = { deal: c => c.suspicious ? 8 : (c.delta ?? 9), new: c => -new Date(c.first_seen || 0), price: c => c.price ?? Infinity, '-price': c => -(c.price ?? 0),
-                km: c => c.km ?? Infinity, '-year': c => -(c.year ?? 0) }[order];
-  list.sort((a, b) => key(a) - key(b));
-  $('#count').textContent = `${list.length} affichée${list.length > 1 ? 's' : ''}`;
-  if (!list.length) { $('#grid').innerHTML = `<div class="empty">${cars.length ? 'Aucune annonce ne correspond aux filtres.' : 'Aucune annonce pour cette recherche.'}</div>`; $('#more').hidden = true; return; }
+/* ============================================================ clé GitHub */
+const token = () => store.get('gh_token');
+function refreshKeyPip() { $('#keyPip').classList.toggle('ok', !!token()); $('#keyBtn').setAttribute('aria-label', token() ? 'Clé GitHub enregistrée' : 'Ajouter une clé GitHub'); }
+refreshKeyPip();
 
-  $('#grid').innerHTML = list.slice(0, shown).map(c => {
-    const d = c.delta, lab = LABELS[(c.price_label || '').trim()];
-    const dTag = d == null ? '' : d < -0.03 ? `<span class="delta good">${Math.round(d * 100)} % vs attendu</span>` : d > 0.03 ? `<span class="delta high">+${Math.round(d * 100)} % vs attendu</span>` : '<span class="delta high">prix dans la moyenne</span>';
-    const expTag = c.expected_price ? `<span class="tag">attendu ≈ ${fmt(c.expected_price)} €</span>` : '';
-    const asTag = lab ? `<span class="delta ${lab[1]}">AS24 : ${lab[0]}</span>` : '';
-    const tag = v => v ? `<span class="tag">${esc(v)}</span>` : '';
-    const img = c.image ? c.image.replace(/\/\d+x\d+\.webp$/, '/480x360.webp') : '';
-    return `<a class="card" href="${esc(c.url)}" target="_blank" rel="noopener">
-      <div class="photo">${img ? `<img src="${esc(img)}" alt="" loading="lazy" onerror="if(this.src!=='${esc(c.image)}')this.src='${esc(c.image)}'">` : ''}
-        <div class="badges">${c.suspicious ? '<span class="badge warn">⚠ À VÉRIFIER</span>' : ''}${c.is_new ? '<span class="badge new">NOUVEAU</span>' : ''}${c.price_drop ? `<span class="badge drop">−${fmt(c.price_drop)} €</span>` : ''}</div></div>
-      <div class="body">
-        <div class="top"><span class="name">${esc(c.make)} ${esc(c.model)}</span><span class="price">${fmt(c.price)} €</span></div>
-        <div class="ver">${esc(c.version) || '&nbsp;'}</div>
-        <div class="row"><span class="odometer">${c.km != null ? String(c.km).padStart(6, '0') : '------'} km</span>${dTag}${asTag}</div>
-        <div class="row">${expTag}</div>
-        <div class="row">${tag(c.first_reg)}${tag(c.fuel)}${tag(c.gear)}${tag(c.power)}</div>
-        <div class="row">${tag([c.zip, c.city].filter(Boolean).join(' '))}${tag(c.seller_name)}</div>
-      </div></a>`;
-  }).join('');
-  $('#more').hidden = list.length <= shown;
-  $('#more').textContent = `Voir plus (${list.length - shown})`;
+async function gh(path, opts = {}) {
+  const r = await fetch(API + path, { method: opts.method || 'GET', body: opts.body,
+    headers: { Accept: 'application/vnd.github+json', 'X-GitHub-Api-Version': '2022-11-28', Authorization: `Bearer ${opts.token || token()}`,
+               ...(opts.body ? { 'Content-Type': 'application/json' } : {}) } });
+  if (r.status === 204) return null;
+  const data = await r.json().catch(() => ({}));
+  if (!r.ok) { const e = new Error(data.message || `HTTP ${r.status}`); e.status = r.status; throw e; }
+  return data;
 }
-['input', 'change'].forEach(ev => ['#q', '#order', '#onlyNew', '#onlyDeals', '#hideSus'].forEach(s => $(s).addEventListener(ev, () => { shown = 30; drawGrid(); })));
-$('#more').onclick = () => { shown += 30; drawGrid(); };
-boot();
+
+let pendingSearch = false;
+$('#keyBtn').onclick = () => {
+  $('#tokenInput').value = '';
+  $('#keyMsg').className = 'formmsg' + (token() ? ' ok' : '');
+  $('#keyMsg').textContent = token() ? 'Une clé est déjà enregistrée sur cet appareil.' : '';
+  $('#keyDlg').showModal();
+};
+$('#keyForget').onclick = () => { store.set('gh_token', null); refreshKeyPip(); $('#keyMsg').className = 'formmsg ok'; $('#keyMsg').textContent = 'Clé supprimée de cet appareil.'; };
+$('#keyForm').addEventListener('submit', async e => {
+  e.preventDefault();
+  const t = $('#tokenInput').value.trim();
+  if (!t) { $('#keyMsg').className = 'formmsg'; $('#keyMsg').textContent = 'Colle ton token dans le champ.'; return; }
+  $('#keySave').disabled = true; $('#keyMsg').className = 'formmsg'; $('#keyMsg').textContent = 'Vérification…';
+  try {
+    await gh('/actions/workflows/scrape.yml', { token: t });
+    store.set('gh_token', t); refreshKeyPip();
+    $('#keyMsg').className = 'formmsg ok'; $('#keyMsg').textContent = 'Clé valide et enregistrée.';
+    setTimeout(() => { $('#keyDlg').close(); if (pendingSearch) openSearch(); }, 700);
+  } catch (err) {
+    $('#keyMsg').textContent = err.status === 401 ? 'Token invalide ou expiré.'
+      : err.status === 404 || err.status === 403 ? `Ce token n'a pas accès aux Actions de ${OWNER}/${REPO}. Vérifie le repo choisi et la permission « Actions : Read and write ».`
+      : `Erreur : ${err.message}`;
+  } finally { $('#keySave').disabled = false; }
+});
+$('#keyDlg').addEventListener('close', () => { if (!token()) pendingSearch = false; });
+
+/* ============================================================ nouvelle recherche */
+function openSearch() {
+  pendingSearch = false;
+  $('#formMsg').textContent = '';
+  const s = current?.search || {};
+  if (!$('#f-make').value && s.make) { $('#f-make').value = s.make; $('#f-model').value = s.model || ''; }
+  $('#searchDlg').showModal();
+}
+$('#fab').onclick = () => { if (!token()) { pendingSearch = true; $('#keyBtn').click(); } else openSearch(); };
+$('#searchCancel').onclick = () => $('#searchDlg').close();
+
+const slugify = s => String(s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+$('#searchForm').addEventListener('submit', async e => {
+  e.preventDefault();
+  const fd = new FormData(e.target), search = {};
+  for (const [k, v] of fd) {
+    if (k === 'watch') continue;
+    const val = String(v).trim();
+    if (!val) continue;
+    search[k] = k === 'make' || k === 'model' ? slugify(val) : k === 'name' ? val : val.replace(/\s/g, '');
+  }
+  if (!search.make) { $('#formMsg').textContent = 'Indique au moins une marque.'; return; }
+  for (const k of ['price_to', 'km_to', 'year_from', 'zip']) if (search[k] && !/^\d+$/.test(search[k])) { $('#formMsg').textContent = 'Prix, km, année et code postal doivent être des nombres.'; return; }
+  const watch = $('#f-watch').checked;
+  const id = Math.random().toString(36).slice(2, 8);
+  $('#searchGo').disabled = true; $('#formMsg').textContent = '';
+  try {
+    await gh('/actions/workflows/scrape.yml/dispatches', { method: 'POST', body: JSON.stringify({ ref: 'main',
+      inputs: { search_json: JSON.stringify(search), request_id: id, watch: watch ? 'true' : 'false' } }) });
+    const job = { id, search, startedAt: new Date().toISOString(), phase: 0 };
+    store.set('job', JSON.stringify(job));
+    $('#searchDlg').close();
+    track(job);
+  } catch (err) {
+    $('#formMsg').textContent = err.status === 401 ? 'Ta clé GitHub a expiré. Touche l\'icône clé en haut pour en mettre une nouvelle.'
+      : err.status === 403 || err.status === 404 ? 'Ta clé n\'a pas le droit de lancer le workflow (permission « Actions : Read and write »).'
+      : `Envoi impossible : ${err.message}`;
+  } finally { $('#searchGo').disabled = false; }
+});
+
+/* ============================================================ suivi d'une recherche */
+let tracking = null;
+function setJob(phase, detail, fail = false) {
+  $('#job').hidden = false; $('#fab').hidden = true;
+  document.querySelectorAll('#jobSteps .step').forEach(el => { const s = +el.dataset.s;
+    el.className = 'step' + (s < phase ? ' done' : s === phase ? (fail ? ' fail' : phase === 3 ? ' done' : ' on') : ''); });
+  $('#jobDetail').innerHTML = detail;
+}
+function endJob() { store.set('job', null); clearTimeout(tracking); tracking = null; }
+$('#jobClose').onclick = () => { $('#job').hidden = true; $('#fab').hidden = false; };
+
+async function track(job) {
+  $('#jobTitle').textContent = `Recherche ${[job.search.make, job.search.model].filter(Boolean).join(' ')}`;
+  const started = new Date(job.startedAt).getTime();
+  const tick = async () => {
+    try {
+      if (job.phase <= 1) {
+        const runs = (await gh('/actions/workflows/scrape.yml/runs?event=workflow_dispatch&per_page=10')).workflow_runs || [];
+        const run = runs.find(r => (r.display_title || '').includes(`[${job.id}]`));
+        if (!run) {
+          if (Date.now() - started > 3 * 60e3) { setJob(0, 'GitHub n\'a pas démarré le workflow. Réessaie dans quelques minutes.', true); endJob(); return; }
+          setJob(0, 'GitHub prépare le lancement…');
+        } else if (run.status !== 'completed') {
+          job.phase = 1; store.set('job', JSON.stringify(job));
+          const sec = Math.max(0, Math.round((Date.now() - new Date(run.run_started_at || run.created_at)) / 1000));
+          setJob(1, `${run.status === 'queued' ? 'En file d\'attente' : `Parcours des pages AutoScout24 · ${Math.floor(sec / 60)} min ${String(sec % 60).padStart(2, '0')} s`} · <a href="${esc(run.html_url)}" target="_blank" rel="noopener">logs</a>`);
+        } else if (run.conclusion !== 'success') {
+          setJob(1, `Le scraping a échoué. <a href="${esc(run.html_url)}" target="_blank" rel="noopener">Ouvre les logs</a> pour voir pourquoi.`, true); endJob(); return;
+        } else { job.phase = 2; job.doneAt = run.updated_at; store.set('job', JSON.stringify(job)); }
+      }
+      if (job.phase === 2) {
+        setJob(2, 'Mise en ligne des résultats (environ 1 min)…');
+        const idx = await loadIndex();
+        const fresh = idx.filter(s => s.updated && new Date(s.updated).getTime() >= started - 60e3).sort((a, b) => new Date(b.updated) - new Date(a.updated))[0];
+        if (fresh) {
+          setJob(3, `${fmt(fresh.count)} annonces récupérées.${fresh.error ? ` Attention : ${esc(fresh.error)}` : ''}`);
+          endJob();
+          await load(fresh.slug);
+          window.scrollTo({ top: 0, behavior: reduced ? 'auto' : 'smooth' });
+          setTimeout(() => { $('#job').hidden = true; $('#fab').hidden = false; }, 6000);
+          return;
+        }
+        if (Date.now() - new Date(job.doneAt || job.startedAt).getTime() > 6 * 60e3) {
+          setJob(2, 'Les résultats tardent à apparaître. Recharge la page dans quelques minutes.', true); endJob(); return;
+        }
+      }
+    } catch (err) {
+      if (err.status === 401) { setJob(job.phase, 'Clé GitHub refusée. Remets-en une via l\'icône clé.', true); endJob(); return; }
+      setJob(job.phase, `Connexion instable, nouvelle tentative… (${esc(err.message)})`);
+    }
+    tracking = setTimeout(tick, job.phase === 0 ? 4000 : 8000);
+  };
+  setJob(job.phase, 'Envoi de la demande à GitHub…');
+  tick();
+}
+
+/* ============================================================ démarrage */
+(async () => {
+  await loadIndex();
+  if (!index.length) {
+    $('#heroTitle').innerHTML = 'Aucune <em>recherche</em>';
+    $('#meta').innerHTML = '<span>Lance ta première recherche avec le bouton en bas.</span>';
+  } else {
+    const wanted = decodeURIComponent(location.hash.slice(1));
+    await load(index.some(s => s.slug === wanted) ? wanted : index[0].slug);
+  }
+  try {
+    const job = JSON.parse(store.get('job') || 'null');
+    if (job && Date.now() - new Date(job.startedAt) < 20 * 60e3) track(job); else store.set('job', null);
+  } catch { store.set('job', null); }
+})();
 </script>
 </body>
 </html>

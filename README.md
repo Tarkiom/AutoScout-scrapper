@@ -10,6 +10,10 @@ Scrape les annonces AutoScout24 avec GitHub Actions et publie les résultats sur
    nom `DISCORD_WEBHOOK`, valeur = l'URL du webhook de ton salon.
 
 ## Lancer un scraping
+- **Depuis le site** : bouton **Nouvelle recherche**. La première fois, le site demande une clé GitHub :
+  token *fine-grained* limité à ce repo, permission **Actions : Read and write** uniquement. Elle reste dans le navigateur de ton appareil.
+  Le site lance le workflow, suit sa progression et affiche les résultats dès qu'ils sont publiés.
+  L'option *Surveiller toutes les 6 h* ajoute la recherche à `config.json`.
 - **À la main** : onglet **Actions** → *Scraper AutoScout24* → **Run workflow**.
   Remplis marque et modèle (slugs AutoScout24 : `volkswagen`, `mercedes-benz`, `classe-a`…) et les filtres voulus.
   Laisse marque et modèle vides pour lancer les recherches de `config.json`.

@@ -26,9 +26,8 @@ on:
         description: "Code postal et rayon en km (ex : 6110 50)"
         required: false
       max_pages:
-        description: "Pages max (20 annonces par page)"
+        description: "Pages max (20 annonces par page). Vide = valeur de config.json"
         required: false
-        default: "35"
   # Automatique : toutes les 6 heures, sur les recherches de config.json
   schedule:
     - cron: "17 */6 * * *"

@@ -16,6 +16,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import re
 import random
 import sys
 import time
@@ -58,31 +59,73 @@ def search_label(s: dict) -> str:
 
 # ---------------------------------------------------------------- tendance prix/km
 
-def fit_line(cars: list[dict]):
-    pts = [(c["km"], c["price"]) for c in cars if c.get("price") and c.get("km") is not None]
-    if len(pts) < 5:
+MIN_PRICE = 1500          # en dessous : épave, pièces ou arnaque -> exclu du calcul
+RED_FLAGS = re.compile(
+    r"export|marchand|n[ée]gociant|pi[eè]ces|panne|accident|sinistr|d[ée]fect|ne (d[ée]marre|roule)|"
+    r"probl[eè]me|moteur hs|hs\b|bo[iî]te hs|[ée]pave|pour bricoleur|sans ct|non roulant|r[ée]paration",
+    re.I)
+DEAL_THRESHOLD = -0.15    # 15 % sous le prix attendu
+
+
+def _solve3(m, v):
+    """Résout un système 3x3 (élimination de Gauss)."""
+    m = [row[:] + [v[i]] for i, row in enumerate(m)]
+    for col in range(3):
+        piv = max(range(col, 3), key=lambda r: abs(m[r][col]))
+        if abs(m[piv][col]) < 1e-12:
+            return None
+        m[col], m[piv] = m[piv], m[col]
+        for r in range(3):
+            if r != col:
+                f = m[r][col] / m[col][col]
+                m[r] = [x - f * y for x, y in zip(m[r], m[col])]
+    return [m[i][3] / m[i][i] for i in range(3)]
+
+
+def price_model(cars: list[dict]):
+    """ln(prix) = a + b*âge + c*km  (moindres carrés). Renvoie predict(car) -> prix attendu."""
+    import math
+    year_now = datetime.now().year
+    pts = [(year_now - c["year"], c["km"] / 10000, math.log(c["price"])) for c in cars
+           if c.get("price") and c["price"] >= MIN_PRICE and c.get("km") is not None and c.get("year")]
+    if len(pts) < 10:
         return None
-    n = len(pts)
-    mx = sum(p[0] for p in pts) / n
-    my = sum(p[1] for p in pts) / n
-    den = sum((x - mx) ** 2 for x, _ in pts)
-    b = sum((x - mx) * (y - my) for x, y in pts) / den if den else 0
-    return my - b * mx, b
+    xtx = [[0.0] * 3 for _ in range(3)]
+    xty = [0.0] * 3
+    for age, km, y in pts:
+        x = (1.0, age, km)
+        for i in range(3):
+            xty[i] += x[i] * y
+            for j in range(3):
+                xtx[i][j] += x[i] * x[j]
+    coef = _solve3(xtx, xty)
+    if not coef:
+        return None
+    a, b, c = coef
+    return lambda car: math.exp(a + b * (year_now - car["year"]) + c * car["km"] / 10000)
 
 
 def add_deal_score(cars: list[dict]):
-    f = fit_line(cars)
+    predict = price_model(cars)
     for c in cars:
+        c["price_label"] = (c.get("price_label") or "").strip() or None
+        c["expected_price"] = None
         c["delta"] = None
-        if f and c.get("price") and c.get("km") is not None:
-            pred = f[0] + f[1] * c["km"]
-            if pred > 0:
-                c["delta"] = round((c["price"] - pred) / pred, 4)
-    return f
+        if predict and c.get("price") and c["price"] >= MIN_PRICE and c.get("km") is not None and c.get("year"):
+            exp = predict(c)
+            if exp > 0:
+                c["expected_price"] = round(exp, -1)
+                c["delta"] = round(c["price"] / exp - 1, 4)
+        text = f"{c.get('version') or ''} {c.get('subtitle') or ''}"
+        c["suspicious"] = (c.get("price_label") == "toolow-price"
+                           or (bool(c.get("price")) and c["price"] < MIN_PRICE)
+                           or bool(RED_FLAGS.search(text)))
 
 
 def is_deal(c: dict) -> bool:
-    return (c.get("delta") is not None and c["delta"] <= -0.10) or c.get("price_label") in ("top-price", "good-price")
+    if c.get("suspicious"):
+        return False
+    return (c.get("delta") is not None and c["delta"] <= DEAL_THRESHOLD) or c.get("price_label") == "top-price"
 
 
 # ---------------------------------------------------------------- discord

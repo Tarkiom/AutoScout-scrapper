@@ -13,7 +13,7 @@
   :root {
     --bg: #f3f5f8; --surface: #ffffff; --surface-2: #e9edf3; --line: #d5dce6;
     --ink: #141b26; --muted: #5c6878; --accent: #1d4fd8; --accent-ink: #ffffff;
-    --deal: #0f8a5a; --deal-bg: #e2f5ec; --new: #b4580b; --new-bg: #fdeedd; --err: #c4322b;
+    --deal: #0f8a5a; --deal-bg: #e2f5ec; --new: #b4580b; --new-bg: #fdeedd; --err: #c4322b; --warn-bg: #fbe4e2;
     --dot: rgba(29, 79, 216, .55); --dot-deal: rgba(15, 138, 90, .85); --trend: #5c6878;
     --f-display: "Archivo", "Arial Narrow", system-ui, sans-serif;
     --f-body: "IBM Plex Sans", system-ui, -apple-system, sans-serif;
@@ -23,7 +23,7 @@
   @media (prefers-color-scheme: dark) { :root {
     --bg: #0d1117; --surface: #151b24; --surface-2: #1c2430; --line: #2a3442;
     --ink: #e7ecf3; --muted: #93a0b2; --accent: #7aa2ff; --accent-ink: #0b1220;
-    --deal: #4cd69a; --deal-bg: #12301f; --new: #f0a35a; --new-bg: #3a2512; --err: #ff7b72;
+    --deal: #4cd69a; --deal-bg: #12301f; --new: #f0a35a; --new-bg: #3a2512; --err: #ff7b72; --warn-bg: #3a1714;
     --dot: rgba(122, 162, 255, .6); --dot-deal: rgba(76, 214, 154, .9); --trend: #93a0b2; color-scheme: dark } }
 
   * { box-sizing: border-box; }
@@ -76,6 +76,8 @@
   .badge { font: 600 11px var(--f-mono); letter-spacing: .04em; border-radius: 6px; padding: 3px 7px; }
   .badge.new { background: var(--new-bg); color: var(--new); }
   .badge.drop { background: var(--deal-bg); color: var(--deal); }
+  .badge.warn { background: var(--warn-bg); color: var(--err); }
+  .delta.warn { color: var(--err); background: var(--warn-bg); }
   .body { padding: 12px 14px 14px; display: flex; flex-direction: column; gap: 7px; }
   .top { display: flex; justify-content: space-between; gap: 10px; align-items: baseline; }
   .name { font: 700 16px var(--f-display); font-stretch: 105%; min-width: 0; overflow-wrap: anywhere; }
@@ -107,7 +109,7 @@
     <div class="stats" id="stats"></div>
     <div class="chart">
       <h3>Prix selon le kilométrage</h3>
-      <p>Les points verts sont plus de 10 % sous la tendance. Touche un point pour ouvrir l'annonce.</p>
+      <p>Les points verts sont les bonnes affaires : au moins 15 % sous le prix attendu pour leur âge et leurs km. Touche un point pour ouvrir l'annonce.</p>
       <div class="canvas-box"><canvas id="chart" aria-label="Nuage de points prix en fonction du kilométrage"></canvas></div>
     </div>
   </section>
@@ -125,6 +127,7 @@
       </select>
       <label class="chip"><input type="checkbox" id="onlyNew"> Nouvelles</label>
       <label class="chip"><input type="checkbox" id="onlyDeals"> Bonnes affaires</label>
+      <label class="chip"><input type="checkbox" id="hideSus" checked> Masquer les suspectes</label>
       <span class="count" id="count"></span>
     </div>
     <div class="grid" id="grid"></div>
@@ -140,9 +143,10 @@ const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': 
 const median = a => { if (!a.length) return null; const s = [...a].sort((x, y) => x - y), m = s.length >> 1; return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2; };
 const ago = iso => { if (!iso) return '?'; const m = (Date.now() - new Date(iso)) / 60000;
   return m < 60 ? `il y a ${Math.max(1, Math.round(m))} min` : m < 1440 ? `il y a ${Math.round(m / 60)} h` : `il y a ${Math.round(m / 1440)} j`; };
-const LABELS = { 'top-price': ['super prix', 'good'], 'good-price': ['bon prix', 'good'], 'fair-price': ['prix correct', 'high'],
-                 'increased-price': ['prix élevé', 'high'], 'high-price': ['prix élevé', 'high'] };
-const isDeal = c => (c.delta != null && c.delta <= -0.10) || c.price_label === 'top-price' || c.price_label === 'good-price';
+const LABELS = { 'top-price': ['très bon prix', 'good'], 'good-price': ['bon prix', 'good'], 'fair-price': ['prix correct', 'high'],
+                 'somewhat-expensive': ['un peu cher', 'high'], 'expensive': ['cher', 'high'], 'increased-price': ['cher', 'high'],
+                 'high-price': ['cher', 'high'], 'toolow-price': ['prix anormal', 'warn'] };
+const isDeal = c => !c.suspicious && ((c.delta != null && c.delta <= -0.15) || (c.price_label || '').trim() === 'top-price');
 
 let index = [], current = null, cars = [], fit = null, chart = null, shown = 30;
 
@@ -191,9 +195,10 @@ function renderStats() {
     stat(cars.filter(c => c.is_new).length, 'nouvelles depuis le dernier passage') +
     stat(prices.length ? fmt(median(prices)) + ' €' : '—', 'prix médian') +
     stat(cars.filter(isDeal).length, 'bonnes affaires') +
+    stat(cars.filter(c => c.suspicious).length, 'suspectes (épave, export…)') +
     stat(kms.length ? fmt(median(kms)) : '—', 'km médian') +
     stat(years.length ? Math.round(median(years)) : '—', 'année médiane') +
-    stat(fit ? '−' + fmt(Math.abs(fit.b) * 10000) + ' €' : '—', 'décote moyenne par 10 000 km', 'wide');
+    stat(fit ? '−' + fmt(Math.abs(fit.b) * 10000) + ' €' : '—', 'décote par 10 000 km');
 }
 
 const cssVar = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
@@ -202,7 +207,7 @@ function drawChart() {
   const pts = cars.filter(c => c.price && c.km != null).map(c => ({ x: c.km, y: c.price, c }));
   const xs = pts.map(p => p.x), lo = Math.min(...xs), hi = Math.max(...xs), ink = cssVar('--muted'), grid = cssVar('--line');
   const ds = [{ type: 'scatter', data: pts, pointRadius: 4, pointHoverRadius: 7, borderWidth: 0,
-                backgroundColor: pts.map(p => (p.c.delta != null && p.c.delta <= -0.10) ? cssVar('--dot-deal') : cssVar('--dot')) }];
+                backgroundColor: pts.map(p => isDeal(p.c) ? cssVar('--dot-deal') : cssVar('--dot')) }];
   if (fit && pts.length) ds.push({ type: 'line', data: [{ x: lo, y: fit.predict(lo) }, { x: hi, y: fit.predict(hi) }],
     borderColor: cssVar('--trend'), borderDash: [6, 5], borderWidth: 1.5, pointRadius: 0 });
   const axis = t => ({ title: { display: true, text: t, color: ink }, ticks: { color: ink, callback: v => fmt(v), font: { family: 'IBM Plex Mono', size: 11 } },
@@ -218,26 +223,28 @@ matchMedia('(prefers-color-scheme: dark)').addEventListener('change', drawChart)
 function drawGrid() {
   const q = $('#q').value.trim().toLowerCase(), order = $('#order').value;
   let list = cars.filter(c => (!q || [c.make, c.model, c.version, c.city, c.zip, c.fuel, c.gear, c.first_reg, c.seller_name].join(' ').toLowerCase().includes(q))
-    && (!$('#onlyNew').checked || c.is_new) && (!$('#onlyDeals').checked || isDeal(c)));
-  const key = { deal: c => c.delta ?? 9, new: c => -new Date(c.first_seen || 0), price: c => c.price ?? Infinity, '-price': c => -(c.price ?? 0),
+    && (!$('#onlyNew').checked || c.is_new) && (!$('#onlyDeals').checked || isDeal(c)) && (!$('#hideSus').checked || !c.suspicious));
+  const key = { deal: c => c.suspicious ? 8 : (c.delta ?? 9), new: c => -new Date(c.first_seen || 0), price: c => c.price ?? Infinity, '-price': c => -(c.price ?? 0),
                 km: c => c.km ?? Infinity, '-year': c => -(c.year ?? 0) }[order];
   list.sort((a, b) => key(a) - key(b));
   $('#count').textContent = `${list.length} affichée${list.length > 1 ? 's' : ''}`;
   if (!list.length) { $('#grid').innerHTML = `<div class="empty">${cars.length ? 'Aucune annonce ne correspond aux filtres.' : 'Aucune annonce pour cette recherche.'}</div>`; $('#more').hidden = true; return; }
 
   $('#grid').innerHTML = list.slice(0, shown).map(c => {
-    const d = c.delta, lab = LABELS[c.price_label];
-    const dTag = d == null ? '' : d < -0.03 ? `<span class="delta good">${Math.round(d * 100)} % vs tendance</span>` : d > 0.03 ? `<span class="delta high">+${Math.round(d * 100)} %</span>` : '';
+    const d = c.delta, lab = LABELS[(c.price_label || '').trim()];
+    const dTag = d == null ? '' : d < -0.03 ? `<span class="delta good">${Math.round(d * 100)} % vs attendu</span>` : d > 0.03 ? `<span class="delta high">+${Math.round(d * 100)} % vs attendu</span>` : '<span class="delta high">prix dans la moyenne</span>';
+    const expTag = c.expected_price ? `<span class="tag">attendu ≈ ${fmt(c.expected_price)} €</span>` : '';
     const asTag = lab ? `<span class="delta ${lab[1]}">AS24 : ${lab[0]}</span>` : '';
     const tag = v => v ? `<span class="tag">${esc(v)}</span>` : '';
     const img = c.image ? c.image.replace(/\/\d+x\d+\.webp$/, '/480x360.webp') : '';
     return `<a class="card" href="${esc(c.url)}" target="_blank" rel="noopener">
       <div class="photo">${img ? `<img src="${esc(img)}" alt="" loading="lazy" onerror="if(this.src!=='${esc(c.image)}')this.src='${esc(c.image)}'">` : ''}
-        <div class="badges">${c.is_new ? '<span class="badge new">NOUVEAU</span>' : ''}${c.price_drop ? `<span class="badge drop">−${fmt(c.price_drop)} €</span>` : ''}</div></div>
+        <div class="badges">${c.suspicious ? '<span class="badge warn">⚠ À VÉRIFIER</span>' : ''}${c.is_new ? '<span class="badge new">NOUVEAU</span>' : ''}${c.price_drop ? `<span class="badge drop">−${fmt(c.price_drop)} €</span>` : ''}</div></div>
       <div class="body">
         <div class="top"><span class="name">${esc(c.make)} ${esc(c.model)}</span><span class="price">${fmt(c.price)} €</span></div>
         <div class="ver">${esc(c.version) || '&nbsp;'}</div>
         <div class="row"><span class="odometer">${c.km != null ? String(c.km).padStart(6, '0') : '------'} km</span>${dTag}${asTag}</div>
+        <div class="row">${expTag}</div>
         <div class="row">${tag(c.first_reg)}${tag(c.fuel)}${tag(c.gear)}${tag(c.power)}</div>
         <div class="row">${tag([c.zip, c.city].filter(Boolean).join(' '))}${tag(c.seller_name)}</div>
       </div></a>`;
@@ -245,7 +252,7 @@ function drawGrid() {
   $('#more').hidden = list.length <= shown;
   $('#more').textContent = `Voir plus (${list.length - shown})`;
 }
-['input', 'change'].forEach(ev => ['#q', '#order', '#onlyNew', '#onlyDeals'].forEach(s => $(s).addEventListener(ev, () => { shown = 30; drawGrid(); })));
+['input', 'change'].forEach(ev => ['#q', '#order', '#onlyNew', '#onlyDeals', '#hideSus'].forEach(s => $(s).addEventListener(ev, () => { shown = 30; drawGrid(); })));
 $('#more').onclick = () => { shown += 30; drawGrid(); };
 boot();
 </script>

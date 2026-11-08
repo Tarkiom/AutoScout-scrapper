@@ -177,6 +177,7 @@ def _from_next_data(html: str) -> tuple[list[dict], int | None, int | None] | No
             "make": v.get("make"),
             "model": v.get("model"),
             "version": v.get("modelVersionInput") or v.get("variant"),
+            "subtitle": v.get("subtitle"),
             "price": _to_int(price.get("priceRaw")) or _to_int(t.get("price")) or _to_int(price.get("priceFormatted")),
             "price_label": t.get("priceLabel"),
             "km": _to_int(t.get("mileage")) or _to_int(v.get("mileageInKm")),

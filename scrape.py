@@ -261,9 +261,11 @@ ENGINE_RISKS = [
 def engine_risk(c: dict):
     if not c.get("year"):
         return None
-    c2 = dict(c, make_k=scraper.slug(c.get("make") or "").replace("-", " "), gear_k=(c.get("gear") or "").lower())
-    if c2["make_k"] == "mercedes benz":
-        c2["make_k"] = "mercedes"
+    import unicodedata
+    make = unicodedata.normalize("NFKD", c.get("make") or "").encode("ascii", "ignore").decode()   # Citroën -> Citroen
+    make_k = scraper.slug(make).replace("-", " ")
+    make_k = {"mercedes benz": "mercedes", "ds automobiles": "ds"}.get(make_k, make_k)
+    c2 = dict(c, make_k=make_k, gear_k=(c.get("gear") or "").lower())
     text = f"{c.get('version') or ''} {c.get('subtitle') or ''}".lower()
     fuel = (c.get("fuel") or "").lower()
     for r in ENGINE_RISKS:
@@ -280,6 +282,8 @@ def flag_reasons(c: dict) -> list[str]:
     reasons = []
     if c.get("price") and c["price"] < MIN_PRICE:
         reasons.append(f"prix sous {MIN_PRICE} €")
+    if c.get("km") is not None and c.get("year") and c["km"] < 3000 and datetime.now().year - c["year"] >= 3:
+        reasons.append(f"kilométrage douteux ({c['km']} km pour une {c['year']}) : sûrement mal saisi")
     title = f"{c.get('version') or ''} {c.get('subtitle') or ''}"
     for m in RED_FLAGS.finditer(title):
         low = title.lower()

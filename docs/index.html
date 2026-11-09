@@ -971,6 +971,8 @@ function drawGrid(reveal = false) {
   $('#more').textContent = `Voir plus · ${fmt(list.length - shown)} restantes`;
 }
 FILTERS.forEach(s => ['input', 'change'].forEach(ev => $(s).addEventListener(ev, () => { shown = 24; drawGrid(); renderQuick(); })));
+try { $('#noEngine').checked = store.get('noEngine') === '1'; } catch {}
+$('#noEngine').addEventListener('change', () => store.set('noEngine', $('#noEngine').checked ? '1' : null));
 $('#onlySus').addEventListener('change', () => { if ($('#onlySus').checked) { $('#hideSus').checked = false; } drawGrid(); });
 $('#hideSus').addEventListener('change', () => { if ($('#hideSus').checked) { $('#onlySus').checked = false; } drawGrid(); });
 $('#more').onclick = () => { shown += 24; drawGrid(); };

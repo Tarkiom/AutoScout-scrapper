@@ -1,14 +1,14 @@
 {
- "updated": "2026-11-09T16:21:11+00:00",
+ "updated": "2026-11-09T16:36:09+00:00",
  "searches": [
   {
    "slug": "max4500-km150000-des2012-cp6142-r50",
    "label": "Toutes Marques · ≤ 4 500 € · ≤ 150 000 km · dès 2012 · 50 km autour de 6142",
-   "count": 442,
-   "updated": "2026-11-09T16:21:08+00:00",
+   "count": 441,
+   "updated": "2026-11-09T16:36:08+00:00",
    "error": null,
-   "new": 0,
-   "deals": 132,
+   "new": 1,
+   "deals": 125,
    "watched": true
   }
  ]

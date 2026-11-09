@@ -42,8 +42,12 @@ SORTS = {
     "recent": ("age", 1),
 }
 
+import threading
+
 _last_request = 0.0
-MIN_DELAY = 1.5  # secondes entre deux requêtes, pour rester discret
+_rate_lock = threading.Lock()
+MIN_DELAY = 0.5  # secondes minimum entre deux départs de requête (toutes requêtes confondues)
+WORKERS = 4      # requêtes en parallèle au maximum
 
 
 def slug(s: str | None) -> str:
@@ -94,10 +98,12 @@ class ScrapeError(Exception):
 
 def fetch(url: str) -> str:
     global _last_request
-    wait = MIN_DELAY - (time.time() - _last_request)
+    with _rate_lock:                       # réserve un créneau, puis lance la requête hors du verrou
+        start = max(time.time(), _last_request + MIN_DELAY)
+        _last_request = start
+    wait = start - time.time()
     if wait > 0:
         time.sleep(wait)
-    _last_request = time.time()
 
     r = http.get(url, headers=HEADERS, timeout=20, **IMPERSONATE)
     if r.status_code == 403:

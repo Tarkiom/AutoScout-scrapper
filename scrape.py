@@ -331,19 +331,32 @@ def check_descriptions(cars: list[dict], previous: dict):
             c["desc_v"] = DESC_VERSION
     todo.sort(key=lambda c: c["delta"] if c.get("delta") is not None else 0)
     checked = 0
-    for c in todo[:DESC_CHECKS_PER_RUN]:
+    from concurrent.futures import ThreadPoolExecutor
+    import threading
+    blocked = threading.Event()
+    t0 = time.time()
+
+    def read(c):
+        if blocked.is_set():
+            return c, None, "ignorée"
         try:
-            text = scraper.fetch_description(c["url"])
+            return c, scraper.fetch_description(c["url"]), None
         except Exception as e:
-            print(f"  description illisible ({e})")
             if "403" in str(e) or "429" in str(e):
-                break
-            continue
-        c["desc"] = (text or "")[:1500]
-        c["desc_flags"] = description_reasons(c, text) if text else []
-        c["desc_v"] = DESC_VERSION
-        checked += 1
-        time.sleep(random.uniform(0.3, 1.0))
+                blocked.set()                  # AutoScout24 freine : on arrête de lire pour ce passage
+            return c, None, e
+    with ThreadPoolExecutor(max_workers=scraper.WORKERS) as ex:
+        for c, text, err in ex.map(read, todo[:DESC_CHECKS_PER_RUN]):
+            if err is not None:
+                if err != "ignorée":
+                    print(f"  description illisible ({err})")
+                continue
+            c["desc"] = (text or "")[:1500]
+            c["desc_flags"] = description_reasons(c, text) if text else []
+            c["desc_v"] = DESC_VERSION
+            checked += 1
+    if checked:
+        print(f"  descriptions lues en {time.time() - t0:.0f} s")
     for c in cars:
         if c.get("desc_flags"):
             c["flags"] = list(dict.fromkeys((c.get("flags") or []) + c["desc_flags"]))
@@ -474,27 +487,44 @@ def run_search(search: dict, max_pages: int) -> dict:
 
     params = {k: search.get(k) for k in FILTER_KEYS if search.get(k) not in (None, "")}
     cars, seen, total, pages, error, last_ok = [], set(), None, None, None, 0
+    from concurrent.futures import ThreadPoolExecutor
+    t0 = time.time()
+    results = {}
+    try:
+        results[1] = scraper.scrape_page(params, 1)
+    except Exception as e:
+        error = f"page 1 : {e}"
+        print("  ERREUR", error)
+    if 1 in results:
+        total, pages = results[1]["total"], results[1]["pages"]
+        print(f"  {total} résultats annoncés sur {pages} pages (source : {results[1]['source']})")
+        last = min(max_pages, pages or 1) if results[1]["listings"] else 1
+
+        def one(pg):
+            try:
+                return pg, scraper.scrape_page(params, pg), None
+            except Exception as e:
+                return pg, None, e
+        with ThreadPoolExecutor(max_workers=scraper.WORKERS) as ex:
+            for pg, res, err in ex.map(one, range(2, last + 1)):
+                if err is not None:
+                    error = error or f"page {pg} : {err}"
+                else:
+                    results[pg] = res
+    # assemble dans l'ordre et s'arrête au premier trou (page en erreur ou vide)
     page = 1
-    while page <= max_pages:
-        try:
-            res = scraper.scrape_page(params, page)
-        except Exception as e:
-            error = f"page {page} : {e}"
-            print("  ERREUR", error)
-            break
-        if page == 1:
-            total, pages = res["total"], res["pages"]
-            print(f"  {total} résultats annoncés sur {pages} pages (source : {res['source']})")
+    while page in results:
+        res = results[page]
         fresh = [c for c in res["listings"] if c.get("id") and c["id"] not in seen]
         seen.update(c["id"] for c in fresh)
         cars += fresh
-        if res["listings"]:
-            last_ok = page
-        print(f"  page {page} : +{len(fresh)} (total {len(cars)})")
-        if not res["listings"] or (pages and page >= pages):
+        if not res["listings"]:
             break
+        last_ok = page
         page += 1
-        time.sleep(random.uniform(0.5, 1.5))
+    if error:
+        print("  ERREUR", error)
+    print(f"  {len(cars)} annonces sur {last_ok} pages en {time.time() - t0:.0f} s")
 
     stamp = now_iso()
     today = stamp[:10]

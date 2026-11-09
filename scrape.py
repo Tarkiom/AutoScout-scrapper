@@ -263,6 +263,8 @@ ENGINE_RISKS = [
 
 def _h5ft(c: dict, t: str) -> bool:
     """1.2 TCe Renault/Dacia (115 à 130 ch) et 1.2 DIG-T Nissan : même moteur H5Ft."""
+    if re.search(r"\b(0[.,]9|1[.,]0|1[.,]33?|1[.,]6)\b", t):   # autres moteurs TCe (0.9, 1.0, 1.3, 1.6) : pas concernés
+        return False
     if c["make_k"] in ("renault", "dacia"):
         return bool(re.search(r"\b1[.,]2\s*tce|\btce\s*(1(15|18|20|25|30))\b", t))
     if c["make_k"] == "nissan":

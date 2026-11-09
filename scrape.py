@@ -69,7 +69,7 @@ def search_label(s: dict) -> str:
 MIN_PRICE = 1500          # en dessous : épave, pièces ou arnaque -> exclu du calcul
 RED_FLAGS = re.compile(
     r"export|marchand|n[ée]gociant|pi[eè]ces|panne|accident|sinistr|d[ée]fect|ne (d[ée]marre|roule)|"
-    r"probl[eè]me|moteur hs|hs\b|bo[iî]te hs|[ée]pave|pour bricoleur|non roulant|r[ée]paration|"
+    r"probl[eè]me?|probleem|moteur hs|hs\b|bo[iî]te hs|[ée]pave|pour bricoleur|non roulant|r[ée]paration|"
     r"bloqu[ée]|[àa] r[ée]viser|voyant|"
     # néerlandais
     r"handelaars?|handelaren|opkopers?|onderdelen|kapot|defect|motorprobleem|motorschade|schade|ongeval|"
@@ -78,6 +78,8 @@ RED_FLAGS = re.compile(
     r"dealers? only|trade only|for parts|spares|non[- ]runner|not running|engine (problem|failure|damage)|damaged",
     re.I)
 DEAL_THRESHOLD = -0.15    # 15 % sous le prix attendu
+REF_CAP_FACTOR = 2.5      # référence : plafond de prix × 2,5
+REF_MAX_PAGES = 40        # référence : 800 annonces au maximum
 TOO_GOOD = -0.50          # plus de 50 % sous le prix attendu : trop beau pour être vrai
 DESC_CHECKS_PER_RUN = 90  # pages d'annonces ouvertes au maximum par passage
 MAKES = ["abarth", "alfa romeo", "audi", "bmw", "citroen", "citroën", "cupra", "dacia", "ds", "fiat", "ford", "honda", "hyundai",
@@ -225,6 +227,54 @@ def price_model(cars: list[dict]):
     return predict, infos, oof
 
 
+# Motorisations et boîtes connues pour des faiblesses récurrentes (points à vérifier, pas une condamnation).
+PSA = ("peugeot", "citroen", "ds", "opel")
+VAG = ("volkswagen", "audi", "seat", "skoda", "cupra")
+ENGINE_RISKS = [
+    {"key": "puretech", "label": "1.2 PureTech",
+     "tip": "Courroie de distribution qui baigne dans l'huile et se désagrège, consommation d'huile. Demande la facture du remplacement de courroie et vérifie le niveau d'huile.",
+     "test": lambda c, t, f: c["make_k"] in PSA and ("puretech" in t or (re.search(r"\b1[.,]2\b", t) and "essence" in f and c["make_k"] != "opel")) and 2013 <= c["year"] <= 2022},
+    {"key": "ecoboost", "label": "1.0 EcoBoost",
+     "tip": "Courroie humide et risque de surchauffe (fuite de liquide de refroidissement). Vérifie l'historique d'entretien et l'absence de perte de liquide.",
+     "test": lambda c, t, f: c["make_k"] == "ford" and ("ecoboost" in t or (re.search(r"\b1[.,]0\b", t) and "essence" in f)) and 2012 <= c["year"] <= 2019},
+    {"key": "tsi-ea111", "label": "1.2 / 1.4 TSI (1re génération)",
+     "tip": "Chaîne de distribution qui s'allonge (bruit de ferraille au démarrage à froid). Écoute le moteur à froid, demande si la chaîne a été changée.",
+     "test": lambda c, t, f: c["make_k"] in VAG and re.search(r"\b1[.,][24]\s*t?fsi|\b1[.,][24]\s*tsi", t) and c["year"] <= 2012},
+    {"key": "tce-h5ft", "label": "1.2 TCe (2012-2016)",
+     "tip": "Consommation d'huile qui peut mener à la casse moteur. Vérifie le niveau d'huile et demande si le rappel / la mise à jour a été faite.",
+     "test": lambda c, t, f: c["make_k"] in ("renault", "dacia", "nissan") and re.search(r"\b1[.,]2\s*tce|\btce\s*1(15|18|20|25|30)\b|\btce\s*(115|118|120|125|130)", t) and 2012 <= c["year"] <= 2016},
+    {"key": "thp", "label": "1.6 THP / Mini Cooper S",
+     "tip": "Chaîne de distribution et consommation d'huile (moteur « Prince »). Écoute le démarrage à froid et vérifie l'entretien.",
+     "test": lambda c, t, f: (("thp" in t and c["make_k"] in PSA) or (c["make_k"] == "mini" and "cooper s" in t)) and c["year"] <= 2015},
+    {"key": "n47", "label": "BMW 2.0 diesel (N47)",
+     "tip": "Chaîne de distribution côté boîte, coûteuse à remplacer. Écoute un sifflement / cliquetis moteur, demande si elle a été changée.",
+     "test": lambda c, t, f: c["make_k"] == "bmw" and "diesel" in f and re.search(r"\b(1|3|5|x1|x3)?\s?(16|18|20|25)d\b|\b(116|118|120|316|318|320|520|525)d\b", f"{c.get('model', '')} {t}".lower()) and c["year"] <= 2014},
+    {"key": "dq200", "label": "Boîte DSG 7 (sèche)",
+     "tip": "Mécatronique et embrayage fragiles. Fais un essai avec des démarrages lents et des à-coups, demande l'historique.",
+     "test": lambda c, t, f: c["make_k"] in VAG and "auto" in c["gear_k"] and ("dsg" in t or re.search(r"\b1[.,][0-4]\b", t)) and c["year"] <= 2016},
+    {"key": "powershift", "label": "Boîte Ford Powershift",
+     "tip": "Embrayage à double plateau sec qui broute et claque. Fais un essai en ville, demande si l'embrayage a été changé sous garantie.",
+     "test": lambda c, t, f: c["make_k"] == "ford" and "auto" in c["gear_k"] and re.search(r"fiesta|focus|b-max|c-max|ecosport", (c.get("model") or "").lower()) and 2011 <= c["year"] <= 2018},
+]
+
+
+def engine_risk(c: dict):
+    if not c.get("year"):
+        return None
+    c2 = dict(c, make_k=scraper.slug(c.get("make") or "").replace("-", " "), gear_k=(c.get("gear") or "").lower())
+    if c2["make_k"] == "mercedes benz":
+        c2["make_k"] = "mercedes"
+    text = f"{c.get('version') or ''} {c.get('subtitle') or ''}".lower()
+    fuel = (c.get("fuel") or "").lower()
+    for r in ENGINE_RISKS:
+        try:
+            if r["test"](c2, text, fuel):
+                return {"key": r["key"], "label": r["label"], "tip": r["tip"]}
+        except Exception:
+            continue
+    return None
+
+
 def flag_reasons(c: dict) -> list[str]:
     """Raisons de douter d'une annonce, d'après les données de la liste."""
     reasons = []
@@ -366,12 +416,20 @@ def check_descriptions(cars: list[dict], previous: dict):
         print(f"  {checked} description(s) lue(s), {flagged} avec un vrai signal de problème")
 
 
-def add_deal_score(cars: list[dict]):
-    for c in cars:
+def add_deal_score(cars: list[dict], reference: list[dict] | None = None):
+    reference = reference or []
+    for c in cars + reference:
         c["price_label"] = (c.get("price_label") or "").strip() or None
         c["flags"] = flag_reasons(c)
         c["suspicious"] = bool(c["flags"])
-    predict, infos, oof = price_model(cars)
+    for c in cars:
+        c["engine_risk"] = engine_risk(c)
+    predict, infos, oof = price_model(cars + reference)
+    if infos:
+        import math
+        errs = sorted(abs(math.log(c["price"] / oof[c["id"]])) for c in cars if c["id"] in oof)
+        infos["typical_error"] = round(math.exp(errs[len(errs) // 2]) - 1, 3) if errs else None
+        infos["n_search"] = sum(1 for c in cars if c["id"] in oof)
     for c in cars:
         c["expected_price"] = None
         c["delta"] = None
@@ -472,29 +530,16 @@ def notify(label: str, deals: list[dict], drops: list[dict], page_url: str | Non
 
 # ---------------------------------------------------------------- run
 
-def run_search(search: dict, max_pages: int) -> dict:
-    slug = search_slug(search)
-    label = search_label(search)
-    out_file = DATA / f"{slug}.json"
-    print(f"\n=== {label}  [{slug}]")
-
-    previous = {}
-    if out_file.exists():
-        try:
-            previous = {c["id"]: c for c in json.loads(out_file.read_text("utf-8")).get("listings", [])}
-        except (ValueError, KeyError):
-            previous = {}
-
-    params = {k: search.get(k) for k in FILTER_KEYS if search.get(k) not in (None, "")}
-    cars, seen, total, pages, error, last_ok = [], set(), None, None, None, 0
+def scrape_all(params: dict, max_pages: int):
+    """Toutes les pages d'une recherche, en parallèle. Renvoie (annonces, total, pages, dernière page lue, erreur)."""
     from concurrent.futures import ThreadPoolExecutor
     t0 = time.time()
+    cars, seen, total, pages, error, last_ok = [], set(), None, None, None, 0
     results = {}
     try:
         results[1] = scraper.scrape_page(params, 1)
     except Exception as e:
         error = f"page 1 : {e}"
-        print("  ERREUR", error)
     if 1 in results:
         total, pages = results[1]["total"], results[1]["pages"]
         print(f"  {total} résultats annoncés sur {pages} pages (source : {results[1]['source']})")
@@ -511,9 +556,8 @@ def run_search(search: dict, max_pages: int) -> dict:
                     error = error or f"page {pg} : {err}"
                 else:
                     results[pg] = res
-    # assemble dans l'ordre et s'arrête au premier trou (page en erreur ou vide)
     page = 1
-    while page in results:
+    while page in results:   # dans l'ordre, jusqu'au premier trou
         res = results[page]
         fresh = [c for c in res["listings"] if c.get("id") and c["id"] not in seen]
         seen.update(c["id"] for c in fresh)
@@ -525,6 +569,39 @@ def run_search(search: dict, max_pages: int) -> dict:
     if error:
         print("  ERREUR", error)
     print(f"  {len(cars)} annonces sur {last_ok} pages en {time.time() - t0:.0f} s")
+    return cars, total, pages, last_ok, error
+
+
+def run_search(search: dict, max_pages: int) -> dict:
+    slug = search_slug(search)
+    label = search_label(search)
+    out_file = DATA / f"{slug}.json"
+    print(f"\n=== {label}  [{slug}]")
+
+    previous = {}
+    if out_file.exists():
+        try:
+            previous = {c["id"]: c for c in json.loads(out_file.read_text("utf-8")).get("listings", [])}
+        except (ValueError, KeyError):
+            previous = {}
+
+    params = {k: search.get(k) for k in FILTER_KEYS if search.get(k) not in (None, "")}
+    cars, total, pages, last_ok, error = scrape_all(params, max_pages)
+
+    # Référence de prix : la même recherche sans plafond serré, pour que le « prix moyen »
+    # ne soit pas calculé seulement sur les voitures les moins chères.
+    reference, ref_info = [], None
+    if params.get("price_to") or params.get("price_from"):
+        ref_params = {k: v for k, v in params.items() if k not in ("price_from", "price_to", "sort")}
+        cap = None
+        if params.get("price_to"):
+            cap = int(round(float(params["price_to"]) * REF_CAP_FACTOR, -3))
+            ref_params["price_to"] = str(cap)
+        print(f"  Référence de prix : même recherche{f' jusqu’à {cap} €' if cap else ' sans prix minimum'}")
+        own = {c["id"] for c in cars}
+        ref_cars, ref_total, _, _, ref_err = scrape_all(ref_params, REF_MAX_PAGES)
+        reference = [c for c in ref_cars if c["id"] not in own]
+        ref_info = {"n": len(reference), "cap": cap, "total": ref_total, "error": ref_err}
 
     stamp = now_iso()
     today = stamp[:10]
@@ -544,7 +621,9 @@ def run_search(search: dict, max_pages: int) -> dict:
         c["price_drop"] = first_price - c["price"] if first_price and c.get("price") and c["price"] < first_price else None
         c["dropped_now"] = bool(old and old.get("price") and c.get("price") and c["price"] < old["price"])
 
-    model = add_deal_score(cars)
+    model = add_deal_score(cars, reference)
+    if model and ref_info:
+        model["reference"] = ref_info
     if cars:
         check_descriptions(cars, previous)
 
@@ -571,7 +650,7 @@ def run_search(search: dict, max_pages: int) -> dict:
             hist = c.get("price_history") or ([[c.get("first_seen", stamp)[:10], c.get("price")]] if c.get("price") else [])
             days = (datetime.fromisoformat(stamp) - datetime.fromisoformat(c.get("first_seen", stamp))).days
             sold.insert(0, {k: c.get(k) for k in ("id", "url", "make", "model", "version", "year", "first_reg", "km", "fuel",
-                                                  "gear", "power", "zip", "city", "seller_name", "image", "delta", "expected_price", "suspicious", "flags")}
+                                                  "gear", "power", "zip", "city", "seller_name", "image", "delta", "expected_price", "suspicious", "flags", "engine_risk")}
                         | {"price": c.get("price"), "first_price": hist[0][1] if hist else c.get("price"),
                            "first_seen": c.get("first_seen"), "gone_at": stamp, "days_online": max(days, 0)})
         if gone:

@@ -261,6 +261,10 @@ dialog[open] .sheet { animation: up .28s cubic-bezier(.2,.8,.2,1); }
 .spark path { fill: none; stroke: var(--deal); stroke-width: 1.6; stroke-linejoin: round; stroke-linecap: round; }
 .spark circle { fill: var(--deal); }
 .age { white-space: nowrap; }
+.engine { font-size: 12.5px; color: var(--new); background: var(--new-bg); border-radius: 8px; padding: 7px 9px; line-height: 1.4; border: 0; text-align: left; cursor: pointer; font-family: inherit; }
+.engine b { font-weight: 700; }
+.engine .tip { display: none; color: var(--chalk); margin-top: 4px; font-size: 12px; }
+.engine[aria-expanded="true"] .tip { display: block; }
 .flags { font-size: 12.5px; color: var(--warn); background: var(--warn-bg); border-radius: 8px; padding: 7px 9px; line-height: 1.4; }
 .age.old { color: var(--new); }
 
@@ -529,6 +533,9 @@ body::after { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-ar
       <label class="chip"><input type="checkbox" id="hideSus" checked>Masquer les suspectes</label>
       <label class="chip"><input type="checkbox" id="onlySus">Seulement les suspectes</label>
     </div>
+    <div class="chips">
+      <label class="chip"><input type="checkbox" id="noEngine">Sans moteurs à surveiller</label>
+    </div>
     <label class="lab" id="maxDistWrap" hidden>Distance de chez moi
       <select class="field" id="maxDist" style="font-size:16px;text-transform:none;letter-spacing:0;font-weight:400">
         <option value="">Toute distance</option><option value="25">≤ 25 km</option><option value="50">≤ 50 km</option><option value="100">≤ 100 km</option>
@@ -695,7 +702,7 @@ let favs = readJSON('favs', {});           // id -> { slug, label, snap, savedAt
 let cmpIds = [];                            // jusqu'à 3 annonces
 const saveFavs = () => store.set('favs', JSON.stringify(favs));
 const SNAP_KEYS = ['id', 'url', 'make', 'model', 'version', 'price', 'price_label', 'km', 'year', 'first_reg', 'fuel', 'gear', 'power', 'zip', 'city', 'country',
-                   'seller', 'seller_name', 'image', 'delta', 'expected_price', 'suspicious', 'flags', 'first_seen', 'price_history', 'price_drop', 'is_new', 'as24_new'];
+                   'seller', 'seller_name', 'image', 'delta', 'expected_price', 'suspicious', 'flags', 'first_seen', 'price_history', 'price_drop', 'is_new', 'as24_new', 'engine_risk'];
 const snap = c => Object.fromEntries(SNAP_KEYS.map(k => [k, c[k]]));
 
 let ZIP = null, home = store.get('home_zip') || '';
@@ -844,7 +851,7 @@ $('#quick').addEventListener('click', e => {
 });
 
 /* ============================================================ filtres */
-const FILTER_LABELS = { onlyDeals: 'Bonnes affaires', onlyNew: 'Nouvelles', onlyDrop: 'Prix en baisse', onlyFav: '★ Favoris', onlySus: 'Suspectes seulement' };
+const FILTER_LABELS = { onlyDeals: 'Bonnes affaires', onlyNew: 'Nouvelles', onlyDrop: 'Prix en baisse', onlyFav: '★ Favoris', onlySus: 'Suspectes seulement', noEngine: 'Sans moteurs à surveiller' };
 function activeFilters() {
   const list = Object.keys(FILTER_LABELS).filter(id => $('#' + id).checked).map(id => [id, FILTER_LABELS[id]]);
   if (!$('#hideSus').checked && !$('#onlySus').checked) list.push(['hideSus', 'Suspectes incluses']);
@@ -864,7 +871,7 @@ $('#activeFilters').addEventListener('click', e => {
 });
 $('#filtBtn').onclick = () => $('#filtDlg').showModal();
 $('#filtReset').onclick = () => {
-  ['onlyDeals', 'onlyNew', 'onlyDrop', 'onlyFav', 'onlySus'].forEach(id => { $('#' + id).checked = false; });
+  ['onlyDeals', 'onlyNew', 'onlyDrop', 'onlyFav', 'onlySus', 'noEngine'].forEach(id => { $('#' + id).checked = false; });
   $('#hideSus').checked = true; $('#maxDist').value = ''; shown = 24; drawGrid(); renderQuick();
 };
 
@@ -924,6 +931,7 @@ function card(c, i, opts = {}) {
       <div class="title"><b>${esc(c.make)} ${esc(c.model)}</b><span>${esc(c.version) || '&nbsp;'}</span></div>
       <div class="verdict">${verdict}${c.expected_price ? `<span class="expected">prix moyen ≈ ${fmt(c.expected_price)} €</span>` : ''}${lab ? `<span class="pill ${lab[1]}">${lab[0]}</span>` : ''}</div>
       ${c.flags?.length ? `<div class="flags">⚠ ${c.flags.map(esc).join(' · ')}</div>` : ''}
+      ${c.engine_risk ? `<button type="button" class="engine" data-eng aria-expanded="false">⚙ <b>Moteur à surveiller</b> : ${esc(c.engine_risk.label)} <span style="opacity:.7">· voir pourquoi</span><span class="tip">${esc(c.engine_risk.tip)}</span></button>` : ''}
       ${n ? `<div class="deal-line"><span>Négo : vise <b>${fmt(n.target)} €</b> (−${Math.round(n.pct * 100)} %)</span>${spark(c.price_history)}</div>` : ''}
       <div class="specs">${odo(c.km)}<span>${esc(c.first_reg || c.year || '')}</span><span>${esc(c.fuel || '')}</span><span>${esc((c.gear || '').replace(/^Boîte /, ''))}</span><span>${esc(c.power || '')}</span></div>
       <div class="where"><span>${esc([c.zip, c.city].filter(Boolean).join(' '))}${km != null ? (km < 4 ? ' · tout près' : ` · ≈ ${km} km`) : ''}</span><span class="age ${old ? 'old' : ''}">${esc(c._from || age)}</span></div>
@@ -936,12 +944,13 @@ function renderPodium() {
   $('#podium').innerHTML = top.map((c, i) => card(c, i, { big: true, rank: i + 1, reveal: !reduced })).join('');
 }
 
-const FILTERS = ['#q', '#order', '#maxDist', '#onlySus', '#onlyFav', '#onlyNew', '#onlyDeals', '#onlyDrop', '#hideSus'];
+const FILTERS = ['#q', '#order', '#maxDist', '#onlySus', '#noEngine', '#onlyFav', '#onlyNew', '#onlyDeals', '#onlyDrop', '#hideSus'];
 function drawGrid(reveal = false) {
   const q = $('#q').value.trim().toLowerCase(), order = $('#order').value;
   const list = cars.filter(c => (!q || [c.make, c.model, c.version, c.city, c.zip, c.fuel, c.gear, c.first_reg, c.seller_name].join(' ').toLowerCase().includes(q))
     && (!$('#onlyNew').checked || isNew(c)) && (!$('#onlyDeals').checked || isDeal(c)) && (!$('#onlyDrop').checked || c.price_drop)
     && ($('#onlySus').checked ? c.suspicious : (!$('#hideSus').checked || !c.suspicious)) && (!$('#onlyFav').checked || favs[c.id])
+    && (!$('#noEngine').checked || !c.engine_risk)
     && (!$('#maxDist').value || (dist(c) ?? Infinity) <= +$('#maxDist').value));
   const key = { deal: c => c.suspicious ? 8 : (c.delta ?? 9), new: c => -(new Date(c.first_seen || 0).getTime() + (c.as24_new ? 6e7 : 0)), price: c => c.price ?? Infinity,
                 '-price': c => -(c.price ?? 0), km: c => c.km ?? Infinity, '-year': c => -(c.year ?? 0),
@@ -967,6 +976,10 @@ $('#hideSus').addEventListener('change', () => { if ($('#hideSus').checked) { $(
 $('#more').onclick = () => { shown += 24; drawGrid(); };
 
 /* ============================================================ favoris & comparaison (clics sur les cartes) */
+document.addEventListener('click', e => {
+  const eng = e.target.closest('[data-eng]');
+  if (eng) { e.preventDefault(); e.stopPropagation(); eng.setAttribute('aria-expanded', eng.getAttribute('aria-expanded') !== 'true'); return; }
+}, true);
 document.addEventListener('click', e => {
   const f = e.target.closest('[data-fav]'), m = e.target.closest('[data-cmp]');
   if (!f && !m) return;
@@ -1009,6 +1022,7 @@ $('#cmpGo').onclick = () => {
     ['Km', c => fmt(c.km), c => c.km, true],
     ['Année', c => esc(c.first_reg || c.year || '—'), c => c.year, false],
     ['Puissance', c => esc(c.power || '—')],
+    ['Moteur', c => c.engine_risk ? `<span style="color:var(--new)">⚙ ${esc(c.engine_risk.label)}</span>` : 'rien de connu'],
     ['Carburant', c => esc(c.fuel || '—')],
     ['Boîte', c => esc((c.gear || '—').replace(/^Boîte /, ''))],
     ['Distance', c => { const d = dist(c); return d != null ? `≈ ${d} km` : '—'; }, c => dist(c), true],
@@ -1034,8 +1048,10 @@ function renderModel() {
   const eff = Object.entries(m.effects || {}).filter(([, v]) => Math.abs(v) >= 0.01)
     .map(([k, v]) => `<span class="${v > 0 ? 'up' : 'down'}">${words[k] || k} ${v > 0 ? '+' : '−'}${Math.round(Math.abs(v) * 100)} %</span>`).join('');
   const seg = m.models || m.makes ? ` Chaque voiture est comparée à son modèle (${m.models} modèles, ${m.makes} marques reconnus), ou à sa marque quand le modèle a trop peu d'annonces.` : '';
-  const weak = m.r2 < 0.3 ? ` <b>Estimation peu précise ici</b> : les prix de cette recherche sont très serrés (filtre de prix), l'étiquette AS24 est plus parlante.` : '';
-  $('#modelNote').innerHTML = `<p class="model-note">Prix attendu calculé sur <b>${fmt(m.n)} annonces</b>, il explique <b>${Math.round(m.r2 * 100)} %</b> des écarts de prix.${seg}${weak} Ce qui fait varier le prix ici :</p><div class="effects">${eff}</div>`;
+  const ref = m.reference ? ` Pour ne pas fausser le prix moyen avec ton plafond, le calcul inclut aussi <b>${fmt(m.reference.n)} annonces de référence</b>${m.reference.cap ? ` jusqu'à ${fmt(m.reference.cap)} €` : ''}.` : '';
+  const err = m.typical_error != null ? ` Écart typique entre le prix demandé et le prix moyen : <b>±${Math.round(m.typical_error * 100)} %</b>.` : '';
+  const weak = !m.reference && m.r2 < 0.3 ? ` <b>Estimation peu précise ici</b> : les prix de cette recherche sont très serrés, l'étiquette AS24 est plus parlante.` : '';
+  $('#modelNote').innerHTML = `<p class="model-note">Prix moyen calculé sur <b>${fmt(m.n)} annonces</b>.${ref}${seg}${err}${weak} Ce qui fait varier le prix ici :</p><div class="effects">${eff}</div>`;
 }
 
 let marketChart = null;

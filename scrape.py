@@ -70,7 +70,12 @@ MIN_PRICE = 1500          # en dessous : épave, pièces ou arnaque -> exclu du 
 RED_FLAGS = re.compile(
     r"export|marchand|n[ée]gociant|pi[eè]ces|panne|accident|sinistr|d[ée]fect|ne (d[ée]marre|roule)|"
     r"probl[eè]me|moteur hs|hs\b|bo[iî]te hs|[ée]pave|pour bricoleur|non roulant|r[ée]paration|"
-    r"bloqu[ée]|[àa] r[ée]viser|voyant",
+    r"bloqu[ée]|[àa] r[ée]viser|voyant|"
+    # néerlandais
+    r"handelaars?|handelaren|opkopers?|onderdelen|kapot|defect|motorprobleem|motorschade|schade|ongeval|"
+    r"start niet|rijdt niet|niet rijdend|koppakking|"
+    # anglais
+    r"dealers? only|trade only|for parts|spares|non[- ]runner|not running|engine (problem|failure|damage)|damaged",
     re.I)
 DEAL_THRESHOLD = -0.15    # 15 % sous le prix attendu
 TOO_GOOD = -0.50          # plus de 50 % sous le prix attendu : trop beau pour être vrai
@@ -238,6 +243,7 @@ def flag_reasons(c: dict) -> list[str]:
 # Phrases qui, dans une description, signalent vraiment un souci (les mots seuls comme « accident » ou
 # « problème » sont trop souvent niés : « jamais accidentée », « aucun problème »).
 DESC_FLAGS = [
+    # --- français
     (r"moteur (hs|mort|cass[ée]|à refaire|a refaire)", "moteur HS"),
     (r"bo[iî]te (de vitesses? )?(hs|morte|cass[ée]e?|à refaire|a refaire)", "boîte HS"),
     (r"joint de culasse", "joint de culasse"),
@@ -250,10 +256,27 @@ DESC_FLAGS = [
     (r"probl[eè]mes? (de |d'|au |à la |a la )?(moteur|bo[iî]te|embrayage|turbo|injecteurs?|distribution|frein|direction|[ée]lectrique)", "problème mécanique"),
     (r"accident[ée]e?s?|sinistr[ée]e?|d[ée]g[aâ]ts? (de )?carross", "accidentée"),
     (r"(uniquement|seulement|r[ée]serv[ée]e?|r[ée]serv[ée]e? aux?|vente|prix|pour) (aux |pour )?(les )?(marchands?|n[ée]gociants?|export|professionnels?)", "vente marchand/export"),
-    (r"\bexport (uniquement|only)\b|\bvoor export\b|\bfor export\b", "vente export"),
+    # --- néerlandais
+    (r"motor (kapot|defect|stuk|hs)|motorschade|motorprobleem|problemen? met (de )?motor", "moteur HS (nl)"),
+    (r"(versnellingsbak|bak|koppeling|turbo|distributie) (kapot|defect|stuk)|(versnellingsbak|koppelings?)probleem|problemen? met (de )?(versnellingsbak|koppeling|turbo)", "problème mécanique (nl)"),
+    (r"koppakking", "joint de culasse (nl)"),
+    (r"(start|rijdt|loopt) niet( meer)?|niet (meer )?rijdend|niet rijklaar|rijdt niet", "ne démarre/roule pas (nl)"),
+    (r"voor (de )?onderdelen|voor sloop|sloopauto|wrak", "pour pièces (nl)"),
+    (r"\bpech\b|\bdefect\b", "en panne (nl)"),
+    (r"motorlampje (brandt|aan)|motorlicht (brandt|aan)", "voyant moteur (nl)"),
+    (r"ongevalwagen|ongeval gehad|\bschade\b|beschadigd|aanrijding", "accidentée (nl)"),
+    (r"(enkel|alleen|uitsluitend|voor) (voor |aan )?(de )?(handelaars?|handelaren|opkopers?|export|garages?)|handelsprijs|\bvoor export\b", "vente marchand/export (nl)"),
+    # --- anglais
+    (r"engine (problem|failure|damage|issue|knock|is dead|blown)|blown engine|head gasket", "problème moteur (en)"),
+    (r"gearbox (problem|issue|failure)|clutch (problem|slipping|gone)", "problème mécanique (en)"),
+    (r"(does ?n.?t|won.?t|will not|not) (start|run|drive)|non[- ]runner|not running", "ne démarre/roule pas (en)"),
+    (r"for (spare )?parts|spares (or|and) repairs?", "pour pièces (en)"),
+    (r"accident damage|damaged|crashed|write[- ]off", "accidentée (en)"),
+    (r"(dealers?|traders?|trade|export) only|only for (dealers?|traders?|export)|for export\b", "vente marchand/export (en)"),
 ]
-NEGATION = re.compile(r"\b(aucun|aucune|pas|sans|jamais|non|ni|z[ée]ro|0|no|geen|nooit)\b[^.!?\n]{0,25}$")
-ABSTAIN = re.compile(r"^[^.!?\n]{0,25}(s'abstenir|sabstenir|abstenir|pas int[ée]ress|non merci)")
+NEGATION = re.compile(r"\b(aucun|aucune|pas|sans|jamais|non|ni|z[ée]ro|no|geen|nooit|zonder|niet|never|not|without|none)\b[^.!?\n]{0,25}$")
+ABSTAIN = re.compile(r"^[-\s]{0,2}(free|vrij)\b|^[^.!?\n]{0,25}(s'abstenir|sabstenir|abstenir|pas int[ée]ress|non merci|niet gewenst|"
+                     r"geen interesse|niet ge[iï]nteresseerd|please|no thanks|not interested|bespaar)")
 
 
 def description_reasons(c: dict, text: str) -> list[str]:
@@ -287,7 +310,7 @@ def description_reasons(c: dict, text: str) -> list[str]:
     return reasons
 
 
-DESC_VERSION = 2   # augmenter quand les règles changent : les descriptions gardées sont réévaluées
+DESC_VERSION = 3   # augmenter quand les règles changent : les descriptions gardées sont réévaluées
 
 
 def check_descriptions(cars: list[dict], previous: dict):

@@ -223,8 +223,6 @@ def price_model(cars: list[dict]):
 def flag_reasons(c: dict) -> list[str]:
     """Raisons de douter d'une annonce, d'après les données de la liste."""
     reasons = []
-    if c.get("price_label") == "toolow-price":
-        reasons.append("prix jugé anormal par AutoScout24")
     if c.get("price") and c["price"] < MIN_PRICE:
         reasons.append(f"prix sous {MIN_PRICE} €")
     m = RED_FLAGS.search(f"{c.get('version') or ''} {c.get('subtitle') or ''}")
@@ -310,7 +308,8 @@ def add_deal_score(cars: list[dict]):
 def is_deal(c: dict) -> bool:
     if c.get("suspicious"):
         return False
-    return (c.get("delta") is not None and c["delta"] <= DEAL_THRESHOLD) or c.get("price_label") == "top-price"
+    return ((c.get("delta") is not None and c["delta"] <= DEAL_THRESHOLD)
+            or c.get("price_label") in ("top-price", "toolow-price"))   # « très bas » AS24 : sa description sera vérifiée
 
 
 # ---------------------------------------------------------------- alertes

@@ -675,6 +675,7 @@ const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
 const LABELS = { 'top-price': ['très bon prix AS24', 'good'], 'good-price': ['bon prix AS24', 'good'], 'fair-price': ['prix correct AS24', 'meh'],
                  'somewhat-expensive': ['un peu cher AS24', 'meh'], 'expensive': ['cher AS24', 'meh'], 'toolow-price': ['prix anormal', 'warn'] };
 const label = c => (c.price_label || '').trim();
+const isNew = c => !!(c.is_new || c.as24_new);
 const isDeal = c => !c.suspicious && ((c.delta != null && c.delta <= -0.15) || label(c) === 'top-price');
 const plate = (txt, cls = '') => `<span class="plate ${cls}"><span class="eu"><svg><use href="#stars"/></svg><b>B</b></span><span class="txt">${txt}</span></span>`;
 const odo = km => { if (km == null) return ''; const s = String(Math.min(km, 999999)).padStart(6, '0');
@@ -693,7 +694,7 @@ let favs = readJSON('favs', {});           // id -> { slug, label, snap, savedAt
 let cmpIds = [];                            // jusqu'à 3 annonces
 const saveFavs = () => store.set('favs', JSON.stringify(favs));
 const SNAP_KEYS = ['id', 'url', 'make', 'model', 'version', 'price', 'price_label', 'km', 'year', 'first_reg', 'fuel', 'gear', 'power', 'zip', 'city', 'country',
-                   'seller', 'seller_name', 'image', 'delta', 'expected_price', 'suspicious', 'flags', 'first_seen', 'price_history', 'price_drop', 'is_new'];
+                   'seller', 'seller_name', 'image', 'delta', 'expected_price', 'suspicious', 'flags', 'first_seen', 'price_history', 'price_drop', 'is_new', 'as24_new'];
 const snap = c => Object.fromEntries(SNAP_KEYS.map(k => [k, c[k]]));
 
 let ZIP = null, home = store.get('home_zip') || '';
@@ -711,6 +712,7 @@ const days = c => c.first_seen ? Math.max(0, Math.floor((Date.now() - new Date(c
 function ageLabel(c) {
   const d = days(c); if (d == null) return '';
   const atStart = trackStart && c.first_seen && Math.abs(new Date(c.first_seen) - trackStart) < 36e5;
+  if (atStart && c.as24_new) return d === 0 ? 'publiée récemment' : `publiée il y a ~${d} j`;
   if (atStart) return d === 0 ? 'suivie depuis aujourd\'hui' : `en ligne depuis ≥ ${d} j`;
   return d === 0 ? "apparue aujourd'hui" : `en ligne depuis ${d} j`;
 }
@@ -826,7 +828,7 @@ setView(view);
 /* ============================================================ chiffres clés (raccourcis de filtre) */
 function renderQuick() {
   const ok = cars.filter(c => !c.suspicious), prices = ok.map(c => c.price).filter(Boolean);
-  const deals = cars.filter(isDeal).length, nNew = cars.filter(c => c.is_new).length, nDrop = cars.filter(c => c.price_drop).length;
+  const deals = cars.filter(isDeal).length, nNew = cars.filter(isNew).length, nDrop = cars.filter(c => c.price_drop).length;
   const q = (id, v, l, cls, filter) => `<button type="button" class="${cls}" ${filter ? `data-q="${filter}" aria-pressed="${$('#' + filter).checked}"` : 'disabled'}><b>${v}</b><span>${l}</span></button>`;
   $('#quick').innerHTML =
     q('m', prices.length ? fmt(median(prices)) + ' €' : '—', 'prix médian', '', null) +
@@ -883,7 +885,7 @@ function renderCluster() {
   $('#gaugeLbl').textContent = `${deals} bonne${deals > 1 ? 's' : ''} affaire${deals > 1 ? 's' : ''}`;
 
   const prices = ok.map(c => c.price).filter(Boolean), kms = ok.map(c => c.km).filter(v => v != null), years = ok.map(c => c.year).filter(Boolean);
-  const nNew = cars.filter(c => c.is_new).length, nDrop = cars.filter(c => c.price_drop).length, nSus = cars.length - ok.length;
+  const nNew = cars.filter(isNew).length, nDrop = cars.filter(c => c.price_drop).length, nSus = cars.length - ok.length;
   const r = (v, l, cls = '') => `<div class="readout ${cls}"><b>${v}</b><span>${l}</span></div>`;
   $('#readouts').innerHTML =
     r(prices.length ? fmt(median(prices)) + ' €' : '—', 'prix médian') +
@@ -907,7 +909,7 @@ function card(c, i, opts = {}) {
   return `<a class="card ${opts.reveal ? 'reveal' : ''}" style="--i:${i % 12}" href="${esc(c.url)}" target="_blank" rel="noopener">
     <div class="photo">
       ${img ? `<img src="${esc(img)}" alt="" loading="lazy" decoding="async" onerror="this.onerror=null;this.src='${esc(c.image)}'">` : `<span class="noimg">${esc(initial)}</span>`}
-      <div class="badges">${c.gone ? '<span class="badge warn">Plus en ligne</span>' : ''}${c.suspicious ? '<span class="badge warn">À vérifier</span>' : ''}${c.is_new ? '<span class="badge new">Nouveau</span>' : ''}${c.price_drop ? `<span class="badge drop">−${fmt(c.price_drop)} €</span>` : ''}</div>
+      <div class="badges">${c.gone ? '<span class="badge warn">Plus en ligne</span>' : ''}${c.suspicious ? '<span class="badge warn">À vérifier</span>' : ''}${isNew(c) ? '<span class="badge new">Nouveau</span>' : ''}${c.price_drop ? `<span class="badge drop">−${fmt(c.price_drop)} €</span>` : ''}</div>
       <div class="cbtns">
         <button class="cbtn cmp" type="button" data-cmp="${esc(c.id)}" aria-pressed="${inCmp}" aria-label="Comparer"><svg><use href="#i-cmp"/></svg></button>
         <button class="cbtn fav" type="button" data-fav="${esc(c.id)}" aria-pressed="${isFav}" aria-label="Favori"><svg><use href="#i-star"/></svg></button>
@@ -935,10 +937,10 @@ const FILTERS = ['#q', '#order', '#maxDist', '#onlySus', '#onlyFav', '#onlyNew',
 function drawGrid(reveal = false) {
   const q = $('#q').value.trim().toLowerCase(), order = $('#order').value;
   const list = cars.filter(c => (!q || [c.make, c.model, c.version, c.city, c.zip, c.fuel, c.gear, c.first_reg, c.seller_name].join(' ').toLowerCase().includes(q))
-    && (!$('#onlyNew').checked || c.is_new) && (!$('#onlyDeals').checked || isDeal(c)) && (!$('#onlyDrop').checked || c.price_drop)
+    && (!$('#onlyNew').checked || isNew(c)) && (!$('#onlyDeals').checked || isDeal(c)) && (!$('#onlyDrop').checked || c.price_drop)
     && ($('#onlySus').checked ? c.suspicious : (!$('#hideSus').checked || !c.suspicious)) && (!$('#onlyFav').checked || favs[c.id])
     && (!$('#maxDist').value || (dist(c) ?? Infinity) <= +$('#maxDist').value));
-  const key = { deal: c => c.suspicious ? 8 : (c.delta ?? 9), new: c => -new Date(c.first_seen || 0), price: c => c.price ?? Infinity,
+  const key = { deal: c => c.suspicious ? 8 : (c.delta ?? 9), new: c => -(new Date(c.first_seen || 0).getTime() + (c.as24_new ? 6e7 : 0)), price: c => c.price ?? Infinity,
                 '-price': c => -(c.price ?? 0), km: c => c.km ?? Infinity, '-year': c => -(c.year ?? 0),
                 old: c => -(days(c) ?? 0), dist: c => dist(c) ?? Infinity }[order];
   list.sort((a, b) => key(a) - key(b));

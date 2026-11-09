@@ -191,6 +191,7 @@ def _from_next_data(html: str) -> tuple[list[dict], int | None, int | None] | No
             "country": loc.get("countryCode"),
             "seller": seller.get("type"),
             "seller_name": seller.get("companyName") or seller.get("contactName"),
+            "as24_new": bool(l.get("isOfferNew")),
             "image": imgs[0] if imgs else None,
             "image_count": len(imgs),
         })

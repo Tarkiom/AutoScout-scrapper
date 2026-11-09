@@ -4,10 +4,12 @@
   "interval_hours": 6,
   "searches": [
     {
-      "price_to": "4000",
+      "price_to": "4500",
       "km_to": "150000",
       "year_from": "2012",
-      "country": "B"
+      "country": "B",
+      "zip": "6142",
+      "radius": "50"
     }
   ]
 }

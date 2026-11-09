@@ -240,9 +240,12 @@ ENGINE_RISKS = [
     {"key": "tsi-ea111", "label": "1.2 / 1.4 TSI (1re génération)",
      "tip": "Chaîne de distribution qui s'allonge (bruit de ferraille au démarrage à froid). Écoute le moteur à froid, demande si la chaîne a été changée.",
      "test": lambda c, t, f: c["make_k"] in VAG and re.search(r"\b1[.,][24]\s*t?fsi|\b1[.,][24]\s*tsi", t) and c["year"] <= 2012},
-    {"key": "tce-h5ft", "label": "1.2 TCe (2012-2016)",
-     "tip": "Consommation d'huile qui peut mener à la casse moteur. Vérifie le niveau d'huile et demande si le rappel / la mise à jour a été faite.",
-     "test": lambda c, t, f: c["make_k"] in ("renault", "dacia", "nissan") and re.search(r"\b1[.,]2\s*tce|\btce\s*1(15|18|20|25|30)\b|\btce\s*(115|118|120|125|130)", t) and 2012 <= c["year"] <= 2016},
+    {"key": "tce-h5ft", "label": "1.2 TCe / DIG-T (2012-2016)",
+     "tip": "Moteur H5Ft connu pour sa consommation d'huile qui peut aller jusqu'à la casse. Vérifie le niveau d'huile, demande si la mise à jour Renault a été faite et l'historique d'entretien.",
+     "test": lambda c, t, f: _h5ft(c, t) and 2012 <= c["year"] <= 2016},
+    {"key": "tce-h5ft-late", "label": "1.2 TCe / DIG-T (2017-2019)",
+     "tip": "Même moteur H5Ft : Renault a corrigé une partie du problème fin 2016, le risque est plus faible mais pas nul. Vérifie le niveau d'huile à froid et demande l'historique d'entretien.",
+     "test": lambda c, t, f: _h5ft(c, t) and 2017 <= c["year"] <= 2019},
     {"key": "thp", "label": "1.6 THP / Mini Cooper S",
      "tip": "Chaîne de distribution et consommation d'huile (moteur « Prince »). Écoute le démarrage à froid et vérifie l'entretien.",
      "test": lambda c, t, f: (("thp" in t and c["make_k"] in PSA) or (c["make_k"] == "mini" and "cooper s" in t)) and c["year"] <= 2015},
@@ -256,6 +259,15 @@ ENGINE_RISKS = [
      "tip": "Embrayage à double plateau sec qui broute et claque. Fais un essai en ville, demande si l'embrayage a été changé sous garantie.",
      "test": lambda c, t, f: c["make_k"] == "ford" and "auto" in c["gear_k"] and re.search(r"fiesta|focus|b-max|c-max|ecosport", (c.get("model") or "").lower()) and 2011 <= c["year"] <= 2018},
 ]
+
+
+def _h5ft(c: dict, t: str) -> bool:
+    """1.2 TCe Renault/Dacia (115 à 130 ch) et 1.2 DIG-T Nissan : même moteur H5Ft."""
+    if c["make_k"] in ("renault", "dacia"):
+        return bool(re.search(r"\b1[.,]2\s*tce|\btce\s*(1(15|18|20|25|30))\b", t))
+    if c["make_k"] == "nissan":
+        return bool(re.search(r"\b1[.,]2\s*dig-?t|\bdig-?t\s*1(15|30)\b", t))
+    return False
 
 
 def engine_risk(c: dict):

@@ -74,7 +74,7 @@ RED_FLAGS = re.compile(
     re.I)
 DEAL_THRESHOLD = -0.15    # 15 % sous le prix attendu
 TOO_GOOD = -0.50          # plus de 50 % sous le prix attendu : trop beau pour être vrai
-DESC_CHECKS_PER_RUN = 40  # pages d'annonces ouvertes au maximum par passage
+DESC_CHECKS_PER_RUN = 90  # pages d'annonces ouvertes au maximum par passage
 MAKES = ["abarth", "alfa romeo", "audi", "bmw", "citroen", "citroën", "cupra", "dacia", "ds", "fiat", "ford", "honda", "hyundai",
          "jaguar", "jeep", "kia", "land rover", "lexus", "mazda", "mercedes", "mini", "mitsubishi", "nissan", "opel", "peugeot",
          "porsche", "renault", "seat", "skoda", "smart", "subaru", "suzuki", "tesla", "toyota", "volkswagen", "volvo"]
@@ -225,18 +225,47 @@ def flag_reasons(c: dict) -> list[str]:
     reasons = []
     if c.get("price") and c["price"] < MIN_PRICE:
         reasons.append(f"prix sous {MIN_PRICE} €")
-    m = RED_FLAGS.search(f"{c.get('version') or ''} {c.get('subtitle') or ''}")
-    if m:
+    title = f"{c.get('version') or ''} {c.get('subtitle') or ''}"
+    for m in RED_FLAGS.finditer(title):
+        low = title.lower()
+        if NEGATION.search(low[max(0, m.start() - 40):m.start()]) or ABSTAIN.search(low[m.end():m.end() + 40]):
+            continue
         reasons.append(f"titre : « {m.group(0).strip()} »")
+        break
     return reasons
 
 
+# Phrases qui, dans une description, signalent vraiment un souci (les mots seuls comme « accident » ou
+# « problème » sont trop souvent niés : « jamais accidentée », « aucun problème »).
+DESC_FLAGS = [
+    (r"moteur (hs|mort|cass[ée]|à refaire|a refaire)", "moteur HS"),
+    (r"bo[iî]te (de vitesses? )?(hs|morte|cass[ée]e?|à refaire|a refaire)", "boîte HS"),
+    (r"joint de culasse", "joint de culasse"),
+    (r"ne (d[ée]marre|roule) (plus|pas)", "ne démarre/roule pas"),
+    (r"non roulante?", "non roulant"),
+    (r"[ée]pave", "épave"),
+    (r"pour (les )?pi[eè]ces", "pour pièces"),
+    (r"(en|tomb[ée]e? en) panne", "en panne"),
+    (r"voyant moteur (allum|on\b)", "voyant moteur allumé"),
+    (r"probl[eè]mes? (de |d'|au |à la |a la )?(moteur|bo[iî]te|embrayage|turbo|injecteurs?|distribution|frein|direction|[ée]lectrique)", "problème mécanique"),
+    (r"accident[ée]e?s?|sinistr[ée]e?|d[ée]g[aâ]ts? (de )?carross", "accidentée"),
+    (r"(uniquement|seulement|r[ée]serv[ée]e?|r[ée]serv[ée]e? aux?|vente|prix|pour) (aux |pour )?(les )?(marchands?|n[ée]gociants?|export|professionnels?)", "vente marchand/export"),
+    (r"\bexport (uniquement|only)\b|\bvoor export\b|\bfor export\b", "vente export"),
+]
+NEGATION = re.compile(r"\b(aucun|aucune|pas|sans|jamais|non|ni|z[ée]ro|0|no|geen|nooit)\b[^.!?\n]{0,25}$")
+ABSTAIN = re.compile(r"^[^.!?\n]{0,25}(s'abstenir|sabstenir|abstenir|pas int[ée]ress|non merci)")
+
+
 def description_reasons(c: dict, text: str) -> list[str]:
-    """Compare la description à la fiche : autre marque, autre année, mots qui fâchent."""
+    """Compare la description à la fiche : autre marque, année plus ancienne, vrais signaux de problème."""
     reasons, low = [], text.lower()
-    m = RED_FLAGS.search(low)
-    if m:
-        reasons.append(f"description : « {m.group(0).strip()} »")
+    for pat, lab in DESC_FLAGS:
+        for m in re.finditer(pat, low):
+            before, after = low[max(0, m.start() - 40):m.start()], low[m.end():m.end() + 40]
+            if NEGATION.search(before) or ABSTAIN.search(after):
+                continue
+            reasons.append(f"description : {lab} (« {low[m.start():m.end()].strip()} »)")
+            break
     norm = low.replace("ë", "e").replace("é", "e")
     make = (c.get("make") or "").lower().replace("ë", "e")
     model = (c.get("model") or "").lower()
@@ -246,23 +275,35 @@ def description_reasons(c: dict, text: str) -> list[str]:
     if others and make and not own_named:
         reasons.append(f"la description parle d'une {others[0].title()}")
     if c.get("year"):
-        years = {int(y) for y in re.findall(r"\b(19[5-9]\d|20[0-3]\d)\b", low)}
-        far = sorted(y for y in years if abs(y - c["year"]) >= 4 and y <= datetime.now().year)
-        if far and c["year"] not in years:
-            reasons.append(f"fiche : {c['year']}, description : {far[0]}")
+        # Seules les années bien PLUS ANCIENNES que la fiche comptent (les années récentes sont des dates
+        # de contrôle ou d'entretien), et jamais un nombre qui fait partie du nom du modèle (Peugeot 2008…).
+        model_nums = set(re.findall(r"\d{4}", f"{c.get('model') or ''} {c.get('version') or ''}"))
+        years = {int(y) for y in re.findall(r"\b(19[5-9]\d|20[0-3]\d)\b", low) if y not in model_nums}
+        older = sorted(y for y in years if y <= c["year"] - 4)
+        if older and c["year"] not in years and (c["year"] - 1) not in years:
+            reasons.append(f"fiche : {c['year']}, description : {older[0]}")
     return reasons
+
+
+DESC_VERSION = 2   # augmenter quand les règles changent : les descriptions gardées sont réévaluées
 
 
 def check_descriptions(cars: list[dict], previous: dict):
     """Ouvre les annonces qui ressemblent à de bonnes affaires et vérifie leur description.
-    Le résultat est gardé d'un passage à l'autre (une annonce n'est lue qu'une fois)."""
+    Le texte est gardé d'un passage à l'autre : une annonce n'est lue qu'une fois, et ses
+    signaux sont recalculés si les règles changent."""
     todo = []
     for c in cars:
         old = previous.get(c["id"]) or {}
-        if "desc_flags" in old and old.get("price") == c.get("price"):
+        if old.get("desc") is not None:
+            c["desc"] = old["desc"]
+            c["desc_flags"] = description_reasons(c, c["desc"]) if c["desc"] else []
+        elif old.get("desc_v") == DESC_VERSION and "desc_flags" in old and old.get("price") == c.get("price"):
             c["desc_flags"] = old["desc_flags"]
         elif not c.get("suspicious") and c.get("url") and is_deal(c):
             todo.append(c)
+        if "desc_flags" in c:
+            c["desc_v"] = DESC_VERSION
     todo.sort(key=lambda c: c["delta"] if c.get("delta") is not None else 0)
     checked = 0
     for c in todo[:DESC_CHECKS_PER_RUN]:
@@ -273,7 +314,9 @@ def check_descriptions(cars: list[dict], previous: dict):
             if "403" in str(e) or "429" in str(e):
                 break
             continue
+        c["desc"] = (text or "")[:1500]
         c["desc_flags"] = description_reasons(c, text) if text else []
+        c["desc_v"] = DESC_VERSION
         checked += 1
         time.sleep(random.uniform(0.3, 1.0))
     for c in cars:
@@ -282,7 +325,7 @@ def check_descriptions(cars: list[dict], previous: dict):
             c["suspicious"] = True
     if checked:
         flagged = sum(1 for c in todo[:DESC_CHECKS_PER_RUN] if c.get("desc_flags"))
-        print(f"  {checked} description(s) vérifiée(s), {flagged} incohérente(s)")
+        print(f"  {checked} description(s) lue(s), {flagged} avec un vrai signal de problème")
 
 
 def add_deal_score(cars: list[dict]):

@@ -240,6 +240,17 @@ def _has(t: str, pat: str) -> bool:
     return re.search(pat, t) is not None
 
 
+def _n47(c, t):
+    return ((c["make_k"] == "bmw" and _has(f"{(c.get('model') or '').lower()} {t}", r"\b(116|118|120|123|316|318|320|325|420|520|525)\s?d\b|\bx[13]\s*(s|x)?drive\s*(18|20|25)\s?d\b|\bx[13]\s*(18|20|25)\s?d\b|\b(18|20|25)d\b"))
+            or (c["make_k"] == "mini" and _has(t, r"cooper\s*s?d\b") and _has(t, r"\b2[.,]0\b")))
+
+
+def _puretech(c, t, f):
+    return "essence" in f and (
+        (c["make_k"] in PSA and ("puretech" in t or _has(t, r"\be?-?vti\b|\b1[.,][02]\s*vti|\bvti\s*(68|72|82)\b") or _has(t, r"\b1[.,]2\b")))
+        or (c["make_k"] == "opel" and _opel_puretech(c, t)))
+
+
 def _opel_puretech(c, t):
     m = (c.get("model") or "").lower()
     return ("puretech" in t or _has(t, r"\b1[.,]2\b")) and (
@@ -250,12 +261,18 @@ def _opel_puretech(c, t):
 ENGINE_RISKS = [
     # ---------------------------------------------------------------- 🔴
     {"key": "puretech", "level": "red", "label": "PureTech 1.0 / 1.2 (EB0 / EB2)",
-     "tip": "Courroie de distribution qui baigne dans l'huile et se délite : les débris bouchent la crépine de pompe à huile (casse moteur possible) et peuvent toucher l'assistance de freinage. Stellantis l'a reconnu (extension 10 ans / 175 000 km). N'acheter qu'avec une facture de remplacement de courroie récente et des vidanges respectées, ou un moteur Gen 3 à chaîne.",
-     "test": lambda c, t, f: c["year"] >= 2012 and "essence" in f and (
-         (c["make_k"] in PSA and ("puretech" in t or _has(t, r"\be?-?vti\b|\b1[.,][02]\s*vti|\bvti\s*(68|72|82)\b") or _has(t, r"\b1[.,]2\b")))
-         or (c["make_k"] == "opel" and _opel_puretech(c, t)))},
+     "tip": "Courroie de distribution qui baigne dans l'huile et se délite : les débris bouchent la crépine de pompe à huile (casse moteur possible) et peuvent toucher l'assistance de freinage. Stellantis l'a reconnu (extension 10 ans / 175 000 km, puis élargie). N'acheter qu'avec une facture de remplacement de courroie récente et des vidanges respectées. Garantie ≠ fiabilité : l'éligibilité d'un exemplaire dépend du VIN et d'un entretien conforme.",
+     "test": lambda c, t, f: 2012 <= c["year"] <= 2023 and _puretech(c, t, f)},
+    {"key": "puretech-gen3", "level": "orange", "label": "PureTech 1.2 (2024-2025 : Gen 2 ou Gen 3 ?)",
+     "tip": "Sur 2024-2025, ce peut être un EB2 Gen 2 à courroie humide (même défaut que les précédents) ou un Gen 3 à chaîne, qui a eu ses propres soucis d'arbre à cames jusqu'en 2024. Le code moteur et la date de fabrication tranchent, pas l'année du modèle.",
+     "test": lambda c, t, f: 2024 <= c["year"] <= 2025 and _puretech(c, t, f)},
+    {"key": "dv5", "level": "red", "label": "1.5 BlueHDi (DV5, 2017-2023)",
+     "tip": "Chaîne d'arbres à cames de 7 mm qui s'use trop vite : saut ou rupture, casse moteur possible. Rappel européen de juillet 2025 avec couverture 100 % jusqu'à 10 ans / 240 000 km si l'entretien est conforme : la plupart des exemplaires sont encore couverts. Avant achat : vérifier par VIN que le rappel est fait, demander le certificat Check+ et le carnet d'entretien.",
+     "test": lambda c, t, f: "diesel" in f and 2017 <= c["year"] <= 2023 and (
+         (c["make_k"] in PSA + ("opel", "fiat", "toyota") and (_has(t, r"\b1[.,]5\s*(bluehdi|hdi|d|cdti|tdi|multijet|blue\s?hdi)\b|\bbluehdi\s*(75|100|102|110|120|130)\b") or ("bluehdi" in t and _has(t, r"\b1[.,]5\b"))))
+         and not (c["make_k"] == "toyota" and "proace" not in t))},
     {"key": "ecoboost10", "level": "red", "label": "Ford 1.0 EcoBoost",
-     "tip": "Deux défauts reconnus par Ford : durite de refroidissement qui casse à chaud (Focus 2011-2013, surchauffe, casse, voire incendie) et courroie humide qui se dégrade et bouche la crépine d'huile. Exiger la preuve de la campagne durite et du remplacement de courroie, et l'huile spécifiée par Ford.",
+     "tip": "Deux défauts distincts, à vérifier séparément : durite de refroidissement qui casse à chaud (Focus 2011-2013, surchauffe, casse, voire incendie) et courroie humide qui se dégrade et bouche la crépine d'huile. Exiger la preuve de la campagne durite et du remplacement de courroie. L'intervalle « 6 ans / 100 000 miles » est américain : pour une voiture belge, suivre le calendrier Ford du VIN.",
      "test": lambda c, t, f: c["make_k"] == "ford" and "essence" in f and c["year"] >= 2011 and ("ecoboost" in t or _has(t, r"\b1[.,]0\b")) and not _has(t, r"\b1[.,][5-6]\b")},
     {"key": "ecoboost16", "level": "red", "label": "Ford 1.6 EcoBoost / GTDi",
      "tip": "Manque de circulation de liquide de refroidissement : fissure de culasse, fuite d'huile sous pression, risque d'incendie (rappel mondial 17S09, qui ajoute seulement une alerte de niveau). Exiger la preuve du rappel et surveiller le niveau de liquide.",
@@ -263,10 +280,10 @@ ENGINE_RISKS = [
          (c["make_k"] == "ford" and (_has(t, r"\b1[.,]6\s*(eco\s?boost|gtdi|scti)|\bst\b") or (_has(t, r"\b1[.,]6\b") and "ecoboost" in t)))
          or (c["make_k"] == "volvo" and _has(t, r"\bt[34]\b") and _has(t, r"\b1[.,]6\b")))},
     {"key": "ea888g2", "level": "red", "label": "1.8 / 2.0 TFSI EA888 (gén. 2)",
-     "tip": "Segments de piston qui laissent passer l'huile : grosse consommation d'huile, encrassement, casse de pistons possible (bulletins Audi, règlements aux États-Unis). Corrigé progressivement à partir du millésime 2012 et sur la génération 3. Contrôler la consommation d'huile et le code moteur (CAEB, CDNC, CCZA, CDAA…).",
+     "tip": "Segments de piston qui laissent passer l'huile : grosse consommation d'huile, encrassement, casse de pistons possible (bulletins Audi, règlements aux États-Unis). Corrigé progressivement à partir du millésime 2012 et sur la génération 3. Les extensions de garantie et règlements sont américains : en Europe, se fier au test de consommation d'huile et à l'historique (codes CAEB, CDNC, CCZA, CDAA…).",
      "test": lambda c, t, f: c["make_k"] in VAG and "essence" in f and 2008 <= c["year"] <= 2013 and (_has(t, r"\b(1[.,]8|2[.,]0)\s*t?fsi|\b(1[.,]8|2[.,]0)\s*tsi\b") or ("gti" in t and c["year"] <= 2012))},
     {"key": "h5ft", "level": "red", "label": "1.2 TCe / DIG-T (H5Ft)",
-     "tip": "Moteurs produits d'octobre 2012 à juillet 2016 : surconsommation d'huile qui abîme les soupapes, puis casse moteur (168 682 véhicules recensés en France). Exiger la preuve de la nouvelle calibration (2015), contrôler la consommation d'huile, pas de fumée bleue.",
+     "tip": "Moteurs produits d'octobre 2012 à juillet 2016 : surconsommation d'huile qui abîme les soupapes, puis casse moteur (168 682 véhicules recensés en France). La recalibration de 2015 limite la consommation mais ne répare pas un moteur déjà abîmé : contrôler la consommation d'huile, pas de fumée bleue, historique d'entretien.",
      "test": lambda c, t, f: _h5ft(c, t) and 2012 <= c["year"] <= 2016},
     {"key": "h5ft-late", "level": "yellow", "label": "1.2 TCe / DIG-T (après la période à risque)",
      "tip": "Même moteur H5Ft, mais les moteurs produits après juillet 2016 sont hors de la période à risque. Une voiture immatriculée en 2017 peut cependant avoir un moteur fabriqué avant : vérifier la date de production et la consommation d'huile.",
@@ -277,19 +294,23 @@ ENGINE_RISKS = [
     {"key": "tdv6", "level": "red", "label": "Land Rover 2.7 / 3.0 TDV6",
      "tip": "Rupture de vilebrequin ou rotation des coussinets : moteur serré, déclaré non réparable par Land Rover (bulletins SSM71816 et SSM72578). Contrôler le niveau d'huile et l'entretien, écouter un grondement ou claquement moteur.",
      "test": lambda c, t, f: c["make_k"] == "land rover" and "diesel" in f and c["year"] <= 2012 and _has(t, r"tdv6|sdv6|\b2[.,]7\b|\b3[.,]0\b|td\s?v6")},
+    {"key": "ea111-twin", "level": "red", "label": "1.4 TSI Twincharger (EA111)",
+     "tip": "Turbo + compresseur (140 à 180 ch) : chaîne de distribution fragile ET casse de pistons, surtout sur le code CAVD. Prudence maximale : n'acheter qu'avec facture de chaîne et contrôle de compression.",
+     "test": lambda c, t, f: c["make_k"] in VAG and "essence" in f and c["year"] <= 2014 and _has(t, r"\b1[.,]4\s*t?[fs]i") and (_has(t, r"twincharger|\b(140|150|160|170|172|179|180|185)\s*(ch|pk|cv|hp)?\b") or 103 <= (_kw(c.get("power")) or 0) <= 136)},
     {"key": "ea111", "level": "red", "label": "1.2 / 1.4 TSI EA111 (à chaîne)",
-     "tip": "Chaîne de distribution qui s'allonge, tendeur défaillant, saut de chaîne et casse moteur ; casse de pistons en plus sur le 1.4 TSI Twincharger (CAVD). Écouter un démarrage à froid : un cliquetis de plus de 2 secondes est mauvais signe.",
+     "tip": "Chaîne de distribution qui s'allonge, tendeur défaillant, saut de chaîne et casse moteur (1.2 TSI : CBZA/B/C ; 1.4 TSI 122 ch : CAXA/C). Pas de casse de pistons documentée sur ces versions. Rouge sans facture de chaîne ; écouter un démarrage à froid : un cliquetis de plus de 2 secondes est mauvais signe.",
      "test": lambda c, t, f: c["make_k"] in VAG and "essence" in f and c["year"] <= 2012 and _has(t, r"\b1[.,][24]\s*t?fsi|\b1[.,][24]\s*tsi")},
     {"key": "ea111-ea211", "level": "orange", "label": "1.2 / 1.4 TSI (2013-2014 : chaîne ou courroie ?)",
      "tip": "En 2013-2014, le même nom couvre l'ancien moteur à chaîne fragile (EA111 : codes CBZ, CAX, CAV, CTH) et le nouveau à courroie, sain (EA211). Vérifier le code moteur : sur Golf 7 / Polo 6C c'est l'EA211, sur Golf 6 / Polo 6R souvent l'EA111.",
      "test": lambda c, t, f: c["make_k"] in VAG and "essence" in f and 2013 <= c["year"] <= 2014 and _has(t, r"\b1[.,][24]\s*t?fsi|\b1[.,][24]\s*tsi")},
-    {"key": "n47", "level": "red", "label": "BMW 2.0d N47",
-     "tip": "Chaîne de distribution à l'arrière du moteur qui s'allonge puis casse (moteur détruit) ; dépose de la boîte pour la changer. Surtout les moteurs d'avant mars 2011. Un N47 avec chaîne déjà remplacée et entretien suivi est un bon diesel : demander la facture.",
-     "test": lambda c, t, f: "diesel" in f and c["year"] <= 2014 and (
-         (c["make_k"] == "bmw" and _has(f"{(c.get('model') or '').lower()} {t}", r"\b(116|118|120|123|316|318|320|325|420|520|525)\s?d\b|\bx[13]\s*(s|x)?drive\s*(18|20|25)\s?d\b|\bx[13]\s*(18|20|25)\s?d\b|\b(18|20|25)d\b"))
-         or (c["make_k"] == "mini" and _has(t, r"cooper\s*s?d\b") and _has(t, r"\b2[.,]0\b")))},
+    {"key": "n47", "level": "red", "label": "BMW / Mini 2.0d N47",
+     "tip": "Chaîne de distribution à l'arrière du moteur qui s'allonge puis casse (moteur détruit) ; dépose de la boîte pour la changer. Défaut reconnu par BMW France pour 2007-2011, risque jusqu'aux moteurs produits le 1er octobre 2013. Un N47 dont la campagne de 2015 a été faite ou la distribution refaite avec les pièces à jour (factures) s'évalue à part.",
+     "test": lambda c, t, f: "diesel" in f and c["year"] <= 2013 and _n47(c, t)},
+    {"key": "n47-late", "level": "yellow", "label": "BMW / Mini 2.0d N47 (fin de production)",
+     "tip": "Risque nettement réduit après octobre 2013 (nouvelles chaînes et guides), mais pas documenté comme nul. Une voiture immatriculée en 2014 peut avoir un moteur produit avant : vérifier la date de production et si la campagne technique de 2015 (nouveau tendeur) a été faite.",
+     "test": lambda c, t, f: "diesel" in f and c["year"] == 2014 and _n47(c, t)},
     {"key": "prince", "level": "red", "label": "1.6 THP « Prince » / Mini Cooper S",
-     "tip": "Chaîne de distribution qui s'allonge et tendeur défaillant (saut de chaîne = casse), consommation d'huile, calamine. Les EP6CDT d'après 2013 sont moins touchés mais pas immunisés. Ne pas acheter sans facture de distribution, écouter le démarrage à froid.",
+     "tip": "Chaîne de distribution qui s'allonge et tendeur défaillant (saut de chaîne = casse), consommation d'huile, calamine. La 1re génération (EP6DT / EP6DTS, Mini N14) est la plus exposée ; les EP6CDT / N18 sont moins touchés mais pas immunisés. Une chaîne et un tendeur remplacés par les dernières références, avec facture, changent la donne.",
      "test": lambda c, t, f: "essence" in f and (
          (c["make_k"] in PSA + ("opel",) and c["year"] <= 2016 and (_has(t, r"\bthp\b") or _has(t, r"\b1[.,]6\s*t\b|\b1[.,]6\s*turbo")))
          or (c["make_k"] == "mini" and c["year"] <= 2014 and _has(t, r"cooper\s*s\b|\bjcw\b|john cooper")))},
@@ -297,14 +318,19 @@ ENGINE_RISKS = [
     {"key": "pentastar", "level": "orange", "label": "3.6 Pentastar V6",
      "tip": "Usure des soupapes de la culasse gauche (tic moteur, ratés) sur les moteurs 2011 à début 2013 ; culasse garantie 10 ans aux États-Unis. Réparable par remplacement de culasse, le reste du moteur est solide.",
      "test": lambda c, t, f: c["make_k"] in ("jeep", "lancia", "chrysler", "dodge") and "essence" in f and 2011 <= c["year"] <= 2013 and _has(t, r"\b3[.,]6\b")},
-    {"key": "gdi", "level": "orange", "label": "Hyundai / Kia 1.6 GDI / 2.0 GDI",
-     "tip": "Usure des coussinets de bielle, consommation d'huile (plus d'1 L / 1 000 km) et claquement de piston à froid documentés sur 2012-2016. Contrôler la consommation d'huile et écouter le moteur à froid ; les versions MPI ne sont pas concernées.",
+    {"key": "ecoblue", "level": "orange", "label": "Ford 2.0 EcoBlue (courroie humide)",
+     "tip": "Courroie de distribution et de pompe à huile qui baigne dans l'huile et se dégrade avant l'heure ; débris vers la crépine. Ford a ramené le remplacement à 6 ans / 160 000 km sur Transit et Tourneo (2024). Panne évitable : exiger la facture de remplacement préventif et vérifier l'intervalle exact par VIN.",
+     "test": lambda c, t, f: c["make_k"] == "ford" and "diesel" in f and c["year"] >= 2016 and (
+         "ecoblue" in t
+         or (_has(t, r"\b2[.,]0\b") and ((c["year"] >= 2016 and _has(t, r"transit|tourneo")) or (c["year"] >= 2018 and _has(t, r"focus|kuga|mondeo|galaxy|s-max|ranger")))))},
+    {"key": "gdi", "level": "yellow", "label": "Hyundai / Kia 1.6 GDI / 2.0 GDI",
+     "tip": "Consommation d'huile, claquement de piston à froid et coussinets documentés surtout sur l'i30 GD 2012-2016. Les garanties étendues sont nord-américaines et ne s'appliquent pas en Belgique. Test de consommation d'huile et écoute à froid ; les versions MPI ne sont pas concernées.",
      "test": lambda c, t, f: c["make_k"] in ("hyundai", "kia") and "essence" in f and 2010 <= c["year"] <= 2016 and _has(t, r"\bgdi\b") and not _has(t, r"t-?gdi")},
     {"key": "om651", "level": "orange", "label": "Mercedes 2.1 CDI (OM651)",
      "tip": "Injecteurs Delphi piézo défaillants sur les 220 / 250 CDI de 2009-2011 (la plupart remplacés), et chaîne de distribution simplex fragile côté boîte. Vérifier que les injecteurs ont été changés et écouter la distribution.",
      "test": lambda c, t, f: c["make_k"] == "mercedes" and "diesel" in f and 2009 <= c["year"] <= 2016 and _has(f"{(c.get('model') or '').lower()} {t}", r"\b(180|200|220|250)\s*(cdi|d|bluetec)\b|\b2[.,]1\b")},
     {"key": "skyactivd", "level": "orange", "label": "Mazda 2.2 Skyactiv-D",
-     "tip": "Huile diluée par le gazole lors des régénérations du FAP (le niveau monte), rondelles d'injecteurs qui fuient, perte de pression d'huile. À éviter pour un usage urbain ; acceptable pour gros rouleur avec vidanges rapprochées et logiciel à jour.",
+     "tip": "Deux problèmes à distinguer : la dilution de l'huile par le gazole (usage urbain, régénérations du FAP, gérable par des vidanges rapprochées) et l'usure mécanique (rondelles d'injecteurs, arbre à cames). La période « 2012 et après » est une borne large. Acceptable pour gros rouleur avec logiciel à jour.",
      "test": lambda c, t, f: c["make_k"] == "mazda" and "diesel" in f and c["year"] >= 2012 and (_has(t, r"\b2[.,]2\b") or _has(t, r"skyactiv-?d\s*(150|175|184)"))},
     {"key": "dv6-16v", "level": "orange", "label": "1.6 HDi / TDCi 16 soupapes (DV6)",
      "tip": "Joints d'injecteurs qui fuient : calamine dans l'huile, conduite d'huile du turbo bouchée, casse turbo à répétition. Sur une 2010-2011, vérifier si c'est un 16 soupapes (à risque) ou un 8 soupapes e-HDi / 92 / 115 (sain).",
@@ -337,6 +363,36 @@ def _h5ft(c: dict, t: str) -> bool:
     if c["make_k"] == "mercedes":
         return "citan" in (c.get("model") or "").lower() and _has(t, r"\b1[.,]2\b|\b112\b") and "essence" in (c.get("fuel") or "").lower()
     return False
+
+
+# Travaux annoncés par le vendeur (titre ou description) : ils ne valent qu'avec facture.
+WORK_DONE = [
+    (r"(courroie|distribution|kit de distribution)[^.\n]{0,30}(remplac|chang|neuve|faite|refaite|nouvelle)|"
+     r"(remplac|chang)[^.\n]{0,15}(la )?(courroie|distribution)|courroie neuve|distribution neuve|distri (faite|neuve)", "courroie / distribution remplacée"),
+    (r"cha[iî]ne[^.\n]{0,30}(remplac|chang|neuve|faite|refaite)|(remplac|chang)[^.\n]{0,15}(la )?cha[iî]ne|cha[iî]ne neuve", "chaîne remplacée"),
+    (r"(distributie)?riem[^.\n]{0,25}(vervangen|nieuw|gedaan)|nieuwe (distributie)?riem|distributie (vervangen|gedaan)", "courroie remplacée (nl)"),
+    (r"ketting[^.\n]{0,25}(vervangen|nieuw)|nieuwe (distributie)?ketting", "chaîne remplacée (nl)"),
+    (r"(timing )?belt (changed|replaced|done)|new timing belt|(timing )?chain (changed|replaced)|new timing chain", "distribution remplacée (en)"),
+    (r"rappel[^.\n]{0,20}(fait|effectu)|campagne[^.\n]{0,20}(faite|effectu)|terugroep[^.\n]{0,20}(gedaan|uitgevoerd)|recall (done|completed)|check\s?\+", "rappel / campagne faite"),
+    (r"moteur (neuf|remplac|chang|refait|reconditionn)|nouveau moteur|nieuwe motor|motor (vervangen|gereviseerd)|new engine|engine replaced", "moteur remplacé"),
+]
+
+
+def engine_status(c: dict):
+    """Statut de l'exemplaire, au sens de l'encyclopédie : « non vérifié » par défaut,
+    ou travaux annoncés dans l'annonce (à prouver par facture)."""
+    r = c.get("engine_risk")
+    if not r:
+        return
+    text = f"{c.get('version') or ''} {c.get('subtitle') or ''} {c.get('desc') or ''}".lower()
+    found = []
+    for pat, lab in WORK_DONE:
+        m = re.search(pat, text)
+        if m and not NEGATION.search(text[max(0, m.start() - 40):m.start()]):
+            found.append(lab)
+    r["status"] = "travaux annoncés" if found else "non vérifié"
+    r["work"] = list(dict.fromkeys(found))
+    r["desc_read"] = c.get("desc") is not None
 
 
 def engine_risk(c: dict):
@@ -496,6 +552,7 @@ def check_descriptions(cars: list[dict], previous: dict):
         if c.get("desc_flags"):
             c["flags"] = list(dict.fromkeys((c.get("flags") or []) + c["desc_flags"]))
             c["suspicious"] = True
+        engine_status(c)
     if checked:
         flagged = sum(1 for c in todo[:DESC_CHECKS_PER_RUN] if c.get("desc_flags"))
         print(f"  {checked} description(s) lue(s), {flagged} avec un vrai signal de problème")

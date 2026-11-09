@@ -263,6 +263,8 @@ dialog[open] .sheet { animation: up .28s cubic-bezier(.2,.8,.2,1); }
 .age { white-space: nowrap; }
 .engine.red { color: var(--warn); background: var(--warn-bg); }
 .engine.yellow { color: var(--dim); background: var(--panel-2); }
+.engine .st { display: block; margin-top: 3px; font-size: 11.5px; color: var(--dim); font-weight: 500; }
+.engine .st.ok { color: var(--deal); }
 .engine .src { display: inline-block; margin-top: 6px; text-decoration: underline; color: var(--chalk); opacity: .8; }
 .engine { font-size: 12.5px; color: var(--new); background: var(--new-bg); border-radius: 8px; padding: 7px 9px; line-height: 1.4; border: 0; text-align: left; cursor: pointer; font-family: inherit; }
 .engine b { font-weight: 700; }
@@ -914,7 +916,10 @@ const ENCYCLO = 'https://claude.ai/artifact/62bhyuTsn4U2Rhtd31qNHQ';
 const ENGINE_LEVEL = { red: ['🔴', 'À éviter'], orange: ['🟠', 'Très risqué'], yellow: ['🟡', 'À surveiller'] };
 function engineBox(r) {
   const [dot, word] = ENGINE_LEVEL[r.level] || ENGINE_LEVEL.orange;
-  return `<button type="button" class="engine ${r.level || 'orange'}" data-eng aria-expanded="false">${dot} <b>${word}</b> : ${esc(r.label)} <span style="opacity:.7">· pourquoi ?</span>`
+  const st = r.status === 'travaux annoncés'
+    ? `<span class="st ok">Statut : travaux annoncés (${esc((r.work || []).join(', '))}), à prouver par facture</span>`
+    : r.status ? `<span class="st">Statut : non vérifié${r.desc_read ? '' : ' (description pas encore lue)'}</span>` : '';
+  return `<button type="button" class="engine ${r.level || 'orange'}" data-eng aria-expanded="false">${dot} <b>${word}</b> : ${esc(r.label)} <span style="opacity:.7">· pourquoi ?</span>${st}`
     + `<span class="tip">${esc(r.tip)}<br><span class="src" data-href="${ENCYCLO}">Voir l'encyclopédie des moteurs ↗</span></span></button>`;
 }
 
@@ -1037,7 +1042,7 @@ $('#cmpGo').onclick = () => {
     ['Km', c => fmt(c.km), c => c.km, true],
     ['Année', c => esc(c.first_reg || c.year || '—'), c => c.year, false],
     ['Puissance', c => esc(c.power || '—')],
-    ['Moteur', c => c.engine_risk ? `${(ENGINE_LEVEL[c.engine_risk.level] || ENGINE_LEVEL.orange)[0]} ${esc(c.engine_risk.label)}` : 'rien de connu'],
+    ['Moteur', c => c.engine_risk ? `${(ENGINE_LEVEL[c.engine_risk.level] || ENGINE_LEVEL.orange)[0]} ${esc(c.engine_risk.label)}${c.engine_risk.status === 'travaux annoncés' ? `<br><span style="color:var(--deal)">travaux annoncés : ${esc((c.engine_risk.work || []).join(', '))}</span>` : ''}` : 'rien de connu'],
     ['Carburant', c => esc(c.fuel || '—')],
     ['Boîte', c => esc((c.gear || '—').replace(/^Boîte /, ''))],
     ['Distance', c => { const d = dist(c); return d != null ? `≈ ${d} km` : '—'; }, c => dist(c), true],

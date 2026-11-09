@@ -124,41 +124,100 @@ def _features(c: dict, year_now: int, kw_default: float, full: bool) -> list[flo
 FEATURE_NAMES = ["âge", "km", "puissance", "diesel", "hybride", "électrique", "boîte auto", "vendeur pro"]
 
 
+def _make_key(c: dict) -> str:
+    return scraper.slug(c.get("make") or "")
+
+
+def _model_key(c: dict) -> str:
+    return f"{_make_key(c)}|{scraper.slug(c.get('model') or '')}"
+
+
+def _fit(X: list[list[float]], y: list[float], pen: list[float]):
+    k = len(X[0])
+    xtx = [[0.0] * k for _ in range(k)]
+    xty = [0.0] * k
+    for r, yy in zip(X, y):
+        nz = [(i, v) for i, v in enumerate(r) if v]
+        for i, vi in nz:
+            xty[i] += vi * yy
+            row = xtx[i]
+            for j, vj in nz:
+                row[j] += vi * vj
+    for i in range(k):
+        xtx[i][i] += pen[i]
+    return _solve(xtx, xty)
+
+
 def price_model(cars: list[dict]):
-    """ln(prix) ~ âge + km (+ puissance, carburant, boîte, type de vendeur si assez d'annonces).
-    Régression ridge légère. Renvoie (predict, infos) ou (None, None)."""
+    """ln(prix) ~ âge + km + puissance + carburant + boîte + vendeur + marque + modèle.
+
+    Régression ridge : la marque et le modèle sont des effets « rétrécis ». Un modèle avec peu d'annonces
+    reste proche de sa marque, une marque rare reste proche de la moyenne générale.
+    Le prix attendu de chaque annonce est calculé sans elle (validation croisée), pour qu'une annonce
+    ne tire pas sa propre estimation vers son prix. Renvoie (predict, infos, oof) ou (None, None, {})."""
     import math
+    import random as rnd
+    from collections import Counter
     year_now = datetime.now().year
     pool = [c for c in cars if c.get("price") and c["price"] >= MIN_PRICE and c.get("km") is not None
             and c.get("year") and not c.get("suspicious")]
     if len(pool) < 10:
-        return None, None
+        return None, None, {}
     kws = sorted(k for k in (_kw(c.get("power")) for c in pool) if k)
     kw_default = kws[len(kws) // 2] if kws else 70.0
     full = len(pool) >= 40
-    X = [_features(c, year_now, kw_default, full) for c in pool]
+
+    make_n = Counter(_make_key(c) for c in pool)
+    model_n = Counter(_model_key(c) for c in pool)
+    makes = sorted(m for m, n in make_n.items() if n >= 3 and m) if len(make_n) > 1 else []
+    models = sorted(m for m, n in model_n.items() if n >= 3 and not m.endswith("|")) if len(model_n) > 1 else []
+    mi = {m: i for i, m in enumerate(makes)}
+    di = {m: i for i, m in enumerate(models)}
+    n_base = len(_features(pool[0], year_now, kw_default, full))
+
+    def row(c):
+        r = _features(c, year_now, kw_default, full) + [0.0] * (len(makes) + len(models))
+        j = mi.get(_make_key(c))
+        if j is not None:
+            r[n_base + j] = 1.0
+        j = di.get(_model_key(c))
+        if j is not None:
+            r[n_base + len(makes) + j] = 1.0
+        return r
+
+    X = [row(c) for c in pool]
     y = [math.log(c["price"]) for c in pool]
-    k = len(X[0])
-    xtx = [[sum(r[i] * r[j] for r in X) for j in range(k)] for i in range(k)]
-    xty = [sum(r[i] * yy for r, yy in zip(X, y)) for i in range(k)]
-    for i in range(1, k):                      # ridge : évite les colonnes vides (ex. aucun diesel)
-        xtx[i][i] += 0.5
-    coef = _solve(xtx, xty)
+    pen = [0.0] + [0.5] * (n_base - 1) + [3.0] * len(makes) + [4.0] * len(models)
+    coef = _fit(X, y, pen)
     if not coef:
-        return None, None
-    pred = [sum(a * b for a, b in zip(coef, r)) for r in X]
+        return None, None, {}
+
+    # validation croisée 5 blocs : prix attendu "hors échantillon" + précision honnête
+    idx = list(range(len(pool)))
+    rnd.Random(42).shuffle(idx)
+    folds = [idx[f::5] for f in range(5)]
+    oof_pred = [None] * len(pool)
+    for f in folds:
+        test = set(f)
+        tr = [i for i in idx if i not in test]
+        cf = _fit([X[i] for i in tr], [y[i] for i in tr], pen) or coef
+        for i in f:
+            oof_pred[i] = sum(a * b for a, b in zip(cf, X[i]))
     my = sum(y) / len(y)
     ss_tot = sum((yy - my) ** 2 for yy in y) or 1
-    r2 = 1 - sum((yy - p) ** 2 for yy, p in zip(y, pred)) / ss_tot
-    names = FEATURE_NAMES[:k - 1]
-    infos = {"n": len(pool), "r2": round(r2, 3), "features": names,
-             "effects": {n: round(math.exp(cf) - 1, 4) for n, cf in zip(names, coef[1:])}}
+    r2 = 1 - sum((yy - p) ** 2 for yy, p in zip(y, oof_pred)) / ss_tot
+
+    names = FEATURE_NAMES[:n_base - 1]
+    infos = {"n": len(pool), "r2": round(max(r2, 0), 3), "features": names,
+             "effects": {n: round(math.exp(cf) - 1, 4) for n, cf in zip(names, coef[1:n_base])},
+             "makes": len(makes), "models": len(models)}
+    oof = {c["id"]: math.exp(p) for c, p in zip(pool, oof_pred)}
 
     def predict(c):
         if not (c.get("km") is not None and c.get("year")):
             return None
-        return math.exp(sum(a * b for a, b in zip(coef, _features(c, year_now, kw_default, full))))
-    return predict, infos
+        return math.exp(sum(a * b for a, b in zip(coef, row(c))))
+    return predict, infos, oof
 
 
 def flag_reasons(c: dict) -> list[str]:
@@ -233,12 +292,12 @@ def add_deal_score(cars: list[dict]):
         c["price_label"] = (c.get("price_label") or "").strip() or None
         c["flags"] = flag_reasons(c)
         c["suspicious"] = bool(c["flags"])
-    predict, infos = price_model(cars)
+    predict, infos, oof = price_model(cars)
     for c in cars:
         c["expected_price"] = None
         c["delta"] = None
         if predict and c.get("price") and c["price"] >= MIN_PRICE:
-            exp = predict(c)
+            exp = oof.get(c["id"]) or predict(c)
             if exp and exp > 0:
                 c["expected_price"] = round(exp, -1)
                 c["delta"] = round(c["price"] / exp - 1, 4)

@@ -1028,7 +1028,9 @@ function renderModel() {
                   'électrique': 'électrique', 'boîte auto': 'boîte auto', 'vendeur pro': 'chez un pro' };
   const eff = Object.entries(m.effects || {}).filter(([, v]) => Math.abs(v) >= 0.01)
     .map(([k, v]) => `<span class="${v > 0 ? 'up' : 'down'}">${words[k] || k} ${v > 0 ? '+' : '−'}${Math.round(Math.abs(v) * 100)} %</span>`).join('');
-  $('#modelNote').innerHTML = `<p class="model-note">Prix attendu calculé sur <b>${fmt(m.n)} annonces</b>, il explique <b>${Math.round(m.r2 * 100)} %</b> des écarts de prix. Ce qui fait varier le prix ici :</p><div class="effects">${eff}</div>`;
+  const seg = m.models || m.makes ? ` Chaque voiture est comparée à son modèle (${m.models} modèles, ${m.makes} marques reconnus), ou à sa marque quand le modèle a trop peu d'annonces.` : '';
+  const weak = m.r2 < 0.3 ? ` <b>Estimation peu précise ici</b> : les prix de cette recherche sont très serrés (filtre de prix), l'étiquette AS24 est plus parlante.` : '';
+  $('#modelNote').innerHTML = `<p class="model-note">Prix attendu calculé sur <b>${fmt(m.n)} annonces</b>, il explique <b>${Math.round(m.r2 * 100)} %</b> des écarts de prix.${seg}${weak} Ce qui fait varier le prix ici :</p><div class="effects">${eff}</div>`;
 }
 
 let marketChart = null;

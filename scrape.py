@@ -278,7 +278,9 @@ def description_reasons(c: dict, text: str) -> list[str]:
         # Seules les années bien PLUS ANCIENNES que la fiche comptent (les années récentes sont des dates
         # de contrôle ou d'entretien), et jamais un nombre qui fait partie du nom du modèle (Peugeot 2008…).
         model_nums = set(re.findall(r"\d{4}", f"{c.get('model') or ''} {c.get('version') or ''}"))
-        years = {int(y) for y in re.findall(r"\b(19[5-9]\d|20[0-3]\d)\b", low) if y not in model_nums}
+        no_prices = re.sub(r"(€|eur\w*)\s*\d[\d .,]*|\d[\d .,]*\s*(€|eur\w*|km\b|cc\b|cm3)", " ", low)   # 1990 €, 2000 km…
+        model_nums |= {str(c.get("price") or "")}
+        years = {int(y) for y in re.findall(r"\b(19[5-9]\d|20[0-3]\d)\b", no_prices) if y not in model_nums}
         older = sorted(y for y in years if y <= c["year"] - 4)
         if older and c["year"] not in years and (c["year"] - 1) not in years:
             reasons.append(f"fiche : {c['year']}, description : {older[0]}")

@@ -676,7 +676,8 @@ const LABELS = { 'top-price': ['très bon prix AS24', 'good'], 'good-price': ['b
                  'somewhat-expensive': ['un peu cher AS24', 'meh'], 'expensive': ['cher AS24', 'meh'], 'toolow-price': ['prix très bas AS24', 'good'] };
 const label = c => (c.price_label || '').trim();
 const isNew = c => !!(c.is_new || c.as24_new);
-const isDeal = c => !c.suspicious && ((c.delta != null && c.delta <= -0.15) || label(c) === 'top-price' || label(c) === 'toolow-price');
+const isDeal = c => !c.suspicious && ((c.delta != null && c.delta <= -0.15)
+  || ((label(c) === 'top-price' || label(c) === 'toolow-price') && (c.delta == null || c.delta <= 0)));   // jamais au-dessus du prix moyen
 const plate = (txt, cls = '') => `<span class="plate ${cls}"><span class="eu"><svg><use href="#stars"/></svg><b>B</b></span><span class="txt">${txt}</span></span>`;
 const odo = km => { if (km == null) return ''; const s = String(Math.min(km, 999999)).padStart(6, '0');
   return `<span class="odo" aria-label="${fmt(km)} km">${[...s].map(d => `<i>${d}</i>`).join('')}<em>km</em></span>`; };
@@ -900,7 +901,9 @@ function renderCluster() {
 
 /* ============================================================ cartes */
 function card(c, i, opts = {}) {
-  const d = c.delta, lab = LABELS[label(c)];
+  const d = c.delta, lab0 = LABELS[label(c)];
+  // si AS24 dit « bon prix » mais que l'annonce est au-dessus du prix moyen, la pastille reste neutre
+  const lab = lab0 && lab0[1] === 'good' && d != null && d > 0 ? [lab0[0], 'meh'] : lab0;
   const verdict = d == null ? '' : d <= -0.03 ? `<span class="pill good">${Math.round(d * 100)} %</span>` : d >= 0.03 ? `<span class="pill meh">+${Math.round(d * 100)} %</span>` : '<span class="pill meh">dans la moyenne</span>';
   const img = c.image ? c.image.replace(/\/\d+x\d+\.webp$/, opts.big ? '/720x540.webp' : '/480x360.webp') : '';
   const initial = (c.model || c.make || '?').slice(0, 1);

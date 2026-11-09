@@ -376,8 +376,12 @@ def add_deal_score(cars: list[dict]):
 def is_deal(c: dict) -> bool:
     if c.get("suspicious"):
         return False
-    return ((c.get("delta") is not None and c["delta"] <= DEAL_THRESHOLD)
-            or c.get("price_label") in ("top-price", "toolow-price"))   # « très bas » AS24 : sa description sera vérifiée
+    d = c.get("delta")
+    if d is not None and d <= DEAL_THRESHOLD:
+        return True
+    # L'étiquette AS24 (« très bon prix » / « prix très bas ») compte seulement si notre calcul
+    # ne la contredit pas : jamais de « bonne affaire » au-dessus du prix moyen.
+    return c.get("price_label") in ("top-price", "toolow-price") and (d is None or d <= 0)
 
 
 # ---------------------------------------------------------------- alertes

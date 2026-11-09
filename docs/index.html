@@ -359,39 +359,46 @@ body::after { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-ar
 .rank { font-size: 52px; }
 @media (min-width: 900px) { .podium { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); overflow: visible; margin-inline: 0; padding-inline: 0; } .podium > * { flex: none; } }
 
-/* ---------- cartes compactes sur téléphone (liste) ---------- */
-@media (max-width: 640px) {
-  .grid { gap: 10px; }
-  .grid .card { display: grid; grid-template-columns: 38% minmax(0, 1fr); }
-  .grid .card .photo { aspect-ratio: auto; height: 100%; min-height: 150px; }
-  .grid .card .photo::after { height: 45%; }
-  .grid .card .photo .plate { left: 6px; bottom: 6px; }
-  .grid .card .photo .plate .txt { font-size: 12px; padding: 4px 6px 3px; }
-  .grid .card .photo .plate .eu { padding: 2px 2px 1px; }
-  .grid .card .photo .plate .eu svg { width: 9px; height: 9px; }
-  .grid .card .photo .plate .eu b { font-size: 6px; }
-  .grid .card .badges { left: 6px; top: 6px; gap: 4px; flex-direction: column; align-items: flex-start; }
-  .grid .card .badge { font-size: 9px; padding: 4px 5px; }
-  .grid .card .cbtns { right: auto; left: 6px; top: auto; bottom: 34px; gap: 4px; }
-  .grid .card .cbtn { width: 28px; height: 28px; }
-  .grid .card .cbtn svg { width: 14px; height: 14px; }
-  .grid .card .body { padding: 10px 11px 11px; gap: 6px; }
-  .grid .card .title b { font-size: 17px; }
-  .grid .card .title span { font-size: 12px; }
-  .grid .card .verdict { gap: 5px; }
-  .grid .card .expected { flex-basis: 100%; font-size: 11px; }
-  .grid .card .pill { font-size: 10px; padding: 4px 5px; }
-  .grid .card .flags { font-size: 11.5px; padding: 5px 7px; }
-  .grid .card .deal-line { font-size: 11.5px; }
-  .grid .card .spark { width: 48px; height: 16px; }
-  .grid .card .specs { gap: 3px 8px; font-size: 11.5px; }
-  .grid .card .specs span:nth-of-type(n+4) { display: none; }
-  .grid .card .odo i { font-size: 10px; min-width: 12px; padding: 3px 2px; }
-  .grid .card .odo em { display: none; }
-  .grid .card .where { font-size: 11.5px; padding-top: 6px; flex-direction: column; gap: 1px; }
-  .grid .card .where span:last-child { text-align: left; }
-  .card:hover { transform: none; }
-}
+/* ---------- carte d'annonce v2 : lisible d'un coup d'œil ---------- */
+.grid { grid-template-columns: repeat(auto-fill, minmax(min(100%, 330px), 1fr)); gap: 16px; }
+.card .photo { aspect-ratio: 16 / 9; }
+.card .photo .plate { display: none; }
+.c-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
+.c-head .title { min-width: 0; }
+.c-head .title b { font-size: 24px; }
+.c-price { flex: none; text-align: right; display: flex; flex-direction: column; align-items: flex-end; gap: 4px; }
+.c-price .plate .txt { font-size: 18px; padding: 6px 9px 5px; }
+.c-price small { font-size: 11.5px; color: var(--dim); }
+.c-verdict { border-radius: 12px; padding: 11px 12px 12px; display: flex; flex-direction: column; gap: 8px; background: var(--panel-2); }
+.c-verdict.good { background: var(--deal-bg); }
+.c-verdict.warn { background: var(--warn-bg); }
+.c-verdict .v-top { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+.c-verdict .v-word { font: 800 19px/1 var(--f-display); text-transform: uppercase; letter-spacing: .02em; color: var(--chalk); }
+.c-verdict.good .v-word { color: var(--deal); }
+.c-verdict.warn .v-word { color: var(--warn); }
+.c-verdict .v-pct { font: 700 13px var(--f-mono); color: var(--dim); }
+.c-verdict.good .v-pct { color: var(--deal); }
+.c-verdict .v-txt { font-size: 13px; color: var(--dim); line-height: 1.4; }
+.c-verdict .v-txt b { color: var(--chalk); font-family: var(--f-mono); font-size: 12.5px; }
+.pricebar { position: relative; height: 8px; border-radius: 99px; background: linear-gradient(90deg, var(--deal) 0 40%, var(--line) 40% 60%, var(--warn) 60%); opacity: .9; margin: 4px 0 2px; }
+.pricebar i { position: absolute; top: 50%; width: 14px; height: 14px; border-radius: 50%; transform: translate(-50%, -50%); background: var(--chalk); border: 3px solid var(--asphalt); box-shadow: 0 0 0 1px var(--chalk); }
+.pricebar span { position: absolute; top: -3px; bottom: -3px; left: 50%; width: 2px; background: var(--chalk); opacity: .5; }
+.pricebar-l { display: flex; justify-content: space-between; font-size: 10.5px; color: var(--faint); text-transform: uppercase; letter-spacing: .08em; }
+.c-specs { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 1px; background: var(--line); border-radius: 10px; overflow: hidden; }
+.c-specs div { background: var(--panel); padding: 8px 9px; display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.c-specs span { font: 600 9.5px var(--f-body); letter-spacing: .1em; text-transform: uppercase; color: var(--faint); }
+.c-specs b { font: 700 13px/1.2 var(--f-mono); font-stretch: 87.5%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-variant-numeric: tabular-nums; }
+.c-nego { display: flex; justify-content: space-between; align-items: center; gap: 10px; font-size: 13px; color: var(--dim); border: 1px dashed var(--line); border-radius: 10px; padding: 8px 11px; }
+.c-nego b { color: var(--chalk); font: 700 15px var(--f-mono); }
+.c-foot { display: flex; flex-direction: column; gap: 3px; font-size: 13px; color: var(--dim); border-top: 1px dashed var(--line); padding-top: 10px; }
+.c-foot .row1 { display: flex; justify-content: space-between; gap: 10px; }
+.c-foot .row1 span:last-child { white-space: nowrap; }
+.c-foot .seller { font-size: 13px; }
+.card .body { gap: 12px; padding: 14px 14px 15px; }
+.as24 { font-size: 12px; color: var(--dim); }
+.as24 b { color: var(--chalk); font-weight: 600; }
+.as24.good b { color: var(--deal); }
+@media (max-width: 380px) { .c-specs { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 
 /* ---------- bouton rond ---------- */
 @media (max-width: 640px) {
@@ -952,35 +959,65 @@ function engineBox(r) {
     + `<span class="tip">${esc(r.tip)}<br><span class="src" data-href="${ENCYCLO}">Voir l'encyclopédie des moteurs ↗</span></span></button>`;
 }
 
+function verdictOf(c) {
+  const d = c.delta;
+  if (c.suspicious) return { cls: 'warn', word: 'À vérifier', pct: '' };
+  if (d == null) return null;
+  const pct = `${d > 0 ? '+' : '−'}${Math.abs(Math.round(d * 100))} %`;
+  if (isDeal(c) && d <= -0.15) return { cls: 'good', word: 'Bonne affaire', pct };
+  if (isDeal(c)) return { cls: 'good', word: 'Bon prix', pct };
+  if (d <= -0.05) return { cls: 'good', word: 'Un peu moins cher', pct };
+  if (d < 0.05) return { cls: '', word: 'Prix normal', pct };
+  if (d < 0.15) return { cls: '', word: 'Un peu cher', pct };
+  return { cls: '', word: 'Plus cher que la moyenne', pct };
+}
+
 function card(c, i, opts = {}) {
   const d = c.delta, lab0 = LABELS[label(c)];
-  // si AS24 dit « bon prix » mais que l'annonce est au-dessus du prix moyen, la pastille reste neutre
   const lab = lab0 && lab0[1] === 'good' && d != null && d > 0 ? [lab0[0], 'meh'] : lab0;
-  const verdict = d == null ? '' : d <= -0.03 ? `<span class="pill good">${Math.round(d * 100)} %</span>` : d >= 0.03 ? `<span class="pill meh">+${Math.round(d * 100)} %</span>` : '<span class="pill meh">dans la moyenne</span>';
-  const img = c.image ? c.image.replace(/\/\d+x\d+\.webp$/, opts.big ? '/720x540.webp' : '/480x360.webp') : '';
+  const v = verdictOf(c);
+  const img = c.image ? c.image.replace(/\/\d+x\d+\.webp$/, opts.big ? '/720x540.webp' : '/720x540.webp') : '';
   const initial = (c.model || c.make || '?').slice(0, 1);
   const n = nego(c), km = dist(c), isFav = !!favs[c.id], inCmp = cmpIds.includes(c.id);
   const age = ageLabel(c), old = (days(c) ?? 0) >= 30;
+  // barre : position du prix demandé entre −40 % et +40 % du prix habituel (milieu = prix habituel)
+  const pos = d == null ? null : Math.max(3, Math.min(97, 50 + d / 0.40 * 50));
+  const verdictHtml = v ? `<div class="c-verdict ${v.cls}">
+      <div class="v-top"><span class="v-word">${v.word}</span><span class="v-pct">${v.pct}</span></div>
+      ${c.suspicious && c.flags?.length ? `<div class="v-txt">${c.flags.map(esc).join(' · ')}</div>` : ''}
+      ${c.expected_price && !c.suspicious ? `<div class="v-txt">Demandé <b>${fmt(c.price)} €</b> · habituellement <b>≈ ${fmt(c.expected_price)} €</b> pour ce modèle, cet âge et ces km.</div>
+        <div><div class="pricebar"><span></span><i style="left:${pos}%"></i></div><div class="pricebar-l"><span>moins cher</span><span>prix habituel</span><span>plus cher</span></div></div>` : ''}
+      ${lab ? `<div class="as24 ${lab[1]}">Avis AutoScout24 : <b>${esc(lab[0].replace(/ AS24$/, ''))}</b></div>` : ''}
+    </div>` : (lab ? `<div class="as24 ${lab[1]}">Avis AutoScout24 : <b>${esc(lab[0].replace(/ AS24$/, ''))}</b></div>` : '');
+  const gear = (c.gear || '').replace(/^Boîte /i, '').replace(/^manuelle$/i, 'Manuelle').replace(/^automatique$/i, 'Auto');
   return `<a class="card ${opts.reveal ? 'reveal' : ''}" style="--i:${i % 12}" href="${esc(c.url)}" target="_blank" rel="noopener">
     <div class="photo">
       ${img ? `<img src="${esc(img)}" alt="" loading="lazy" decoding="async" onerror="this.onerror=null;this.src='${esc(c.image)}'">` : `<span class="noimg">${esc(initial)}</span>`}
-      <div class="badges">${c.gone ? '<span class="badge warn">Plus en ligne</span>' : ''}${c.suspicious ? '<span class="badge warn">À vérifier</span>' : ''}${isNew(c) ? '<span class="badge new">Nouveau</span>' : ''}${c.price_drop ? `<span class="badge drop">−${fmt(c.price_drop)} €</span>` : ''}</div>
+      <div class="badges">${c.gone ? '<span class="badge warn">Plus en ligne</span>' : ''}${isNew(c) ? '<span class="badge new">Nouveau</span>' : ''}${c.price_drop ? `<span class="badge drop">Baisse −${fmt(c.price_drop)} €</span>` : ''}</div>
       <div class="cbtns">
         <button class="cbtn cmp" type="button" data-cmp="${esc(c.id)}" aria-pressed="${inCmp}" aria-label="Comparer"><svg><use href="#i-cmp"/></svg></button>
         <button class="cbtn fav" type="button" data-fav="${esc(c.id)}" aria-pressed="${isFav}" aria-label="Favori"><svg><use href="#i-star"/></svg></button>
       </div>
-      ${plate(`${fmt(c.price)} €`)}
       ${opts.rank ? `<span class="rank">${opts.rank}</span>` : ''}
     </div>
     <div class="body">
-      <div class="title"><b>${esc(c.make)} ${esc(c.model)}</b><span>${esc(c.version) || '&nbsp;'}</span></div>
-      <div class="verdict">${verdict}${c.expected_price ? `<span class="expected">prix moyen ≈ ${fmt(c.expected_price)} €</span>` : ''}${lab ? `<span class="pill ${lab[1]}">${lab[0]}</span>` : ''}</div>
-      ${c.flags?.length ? `<div class="flags">⚠ ${c.flags.map(esc).join(' · ')}</div>` : ''}
+      <div class="c-head">
+        <div class="title"><b>${esc(c.make)} ${esc(c.model)}</b><span>${esc(c.version) || '&nbsp;'}</span></div>
+        <div class="c-price">${plate(`${fmt(c.price)} €`)}${spark(c.price_history) ? `<small>${spark(c.price_history)}</small>` : ''}</div>
+      </div>
+      ${verdictHtml}
+      <div class="c-specs">
+        <div><span>Année</span><b>${esc(c.first_reg || c.year || '—')}</b></div>
+        <div><span>Kilomètres</span><b>${c.km != null ? fmt(c.km) : '—'}</b></div>
+        <div><span>Carburant</span><b>${esc(c.fuel || '—')}</b></div>
+        <div><span>Boîte</span><b>${esc(gear || '—')}</b></div>
+      </div>
       ${c.engine_risk ? engineBox(c.engine_risk) : ''}
-      ${n ? `<div class="deal-line"><span>Négo : vise <b>${fmt(n.target)} €</b> (−${Math.round(n.pct * 100)} %)</span>${spark(c.price_history)}</div>` : ''}
-      <div class="specs">${odo(c.km)}<span>${esc(c.first_reg || c.year || '')}</span><span>${esc(c.fuel || '')}</span><span>${esc((c.gear || '').replace(/^Boîte /, ''))}</span><span>${esc(c.power || '')}</span></div>
-      <div class="where"><span>${esc([c.zip, c.city].filter(Boolean).join(' '))}${km != null ? (km < 3 ? ' · tout près' : ` · ${km} km`) : ''}</span><span class="age ${old ? 'old' : ''}">${esc(c._from || age)}</span></div>
-      <div class="seller ${c.seller ? (isPro(c) ? 'pro' : 'priv') : ''}">${esc(sellerLabel(c))}</div>
+      ${n ? `<div class="c-nego"><span>Prix à proposer</span><b>${fmt(n.target)} €</b></div>` : ''}
+      <div class="c-foot">
+        <div class="row1"><span>📍 ${esc(c.city || c.zip || '—')}${km != null ? (km < 3 ? ' · tout près' : ` · ${km} km`) : ''}</span><span class="age ${old ? 'old' : ''}">${esc(c._from || age)}</span></div>
+        <div class="seller ${c.seller ? (isPro(c) ? 'pro' : 'priv') : ''}">${esc(sellerLabel(c))}${c.power ? `<span style="color:var(--faint);font-weight:500"> · ${esc(c.power)}</span>` : ''}</div>
+      </div>
     </div></a>`;
 }
 

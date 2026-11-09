@@ -224,9 +224,9 @@ dialog[open] .sheet { animation: up .28s cubic-bezier(.2,.8,.2,1); }
 .lab, .form label { display: flex; flex-direction: column; gap: 6px; font: 600 11px var(--f-body); letter-spacing: .1em; text-transform: uppercase; color: var(--dim); min-width: 0; }
 .form .field, .sheet .field { width: 100%; font-size: 16px; text-transform: none; letter-spacing: 0; font-weight: 400; }
 .seg { display: flex; flex-wrap: wrap; gap: 6px; }
-.form .seg label { flex-direction: row; text-transform: none; letter-spacing: 0; font-size: 14px; font-weight: 600; color: var(--dim); border: 1px solid var(--line); border-radius: 99px; padding: 8px 13px; cursor: pointer; position: relative; }
+.form .seg label, #sellerSeg label { flex-direction: row; text-transform: none; letter-spacing: 0; font-size: 14px; font-weight: 600; color: var(--dim); border: 1px solid var(--line); border-radius: 99px; padding: 8px 13px; cursor: pointer; position: relative; }
 .seg input { position: absolute; opacity: 0; width: 1px; height: 1px; }
-.form .seg label:has(input:checked) { background: var(--chalk); color: var(--asphalt); border-color: var(--chalk); }
+.form .seg label:has(input:checked), #sellerSeg label:has(input:checked) { background: var(--chalk); color: var(--asphalt); border-color: var(--chalk); }
 .seg label:has(input:focus-visible) { outline: 2px solid var(--amber); outline-offset: 2px; }
 .form label.toggle { flex-direction: row; align-items: center; justify-content: space-between; gap: 12px; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; text-transform: none; letter-spacing: 0; font-size: 14px; color: var(--chalk); cursor: pointer; }
 .toggle small { display: block; color: var(--dim); font-weight: 400; font-size: 12.5px; margin-top: 2px; }
@@ -261,6 +261,10 @@ dialog[open] .sheet { animation: up .28s cubic-bezier(.2,.8,.2,1); }
 .spark path { fill: none; stroke: var(--deal); stroke-width: 1.6; stroke-linejoin: round; stroke-linecap: round; }
 .spark circle { fill: var(--deal); }
 .age { white-space: nowrap; }
+.seller { font-size: 12px; font-weight: 600; color: var(--dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.seller:empty { display: none; }
+.seller.pro { color: var(--chalk); }
+.seller.priv { color: var(--new); }
 .engine.red { color: var(--warn); background: var(--warn-bg); }
 .engine.yellow { color: var(--dim); background: var(--panel-2); }
 .engine .st { display: block; margin-top: 3px; font-size: 11.5px; color: var(--dim); font-weight: 500; }
@@ -541,6 +545,13 @@ body::after { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-ar
     <div class="chips">
       <label class="chip"><input type="checkbox" id="noEngine">Sans moteurs à surveiller</label>
     </div>
+    <div class="lab">Vendeur
+      <div class="seg" id="sellerSeg" style="margin-top:6px">
+        <label><input type="radio" name="sellerF" value="" checked>Tous</label>
+        <label><input type="radio" name="sellerF" value="pro">Garages</label>
+        <label><input type="radio" name="sellerF" value="priv">Particuliers</label>
+      </div>
+    </div>
     <div class="chips" id="strictWrap" hidden>
       <label class="chip"><input type="checkbox" id="strictRadius" checked><span id="strictLbl">Rayon strict</span></label>
     </div>
@@ -690,6 +701,8 @@ const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
 const LABELS = { 'top-price': ['très bon prix AS24', 'good'], 'good-price': ['bon prix AS24', 'good'], 'fair-price': ['prix correct AS24', 'meh'],
                  'somewhat-expensive': ['un peu cher AS24', 'meh'], 'expensive': ['cher AS24', 'meh'], 'toolow-price': ['prix très bas AS24', 'good'] };
 const label = c => (c.price_label || '').trim();
+const isPro = c => (c.seller || '').toLowerCase().startsWith('d');          // Dealer
+const sellerLabel = c => !c.seller ? '' : isPro(c) ? (c.seller_name ? `Garage · ${c.seller_name}` : 'Garage') : 'Particulier';
 const isNew = c => !!(c.is_new || c.as24_new);
 const isDeal = c => !c.suspicious && ((c.delta != null && c.delta <= -0.15)
   || ((label(c) === 'top-price' || label(c) === 'toolow-price') && (c.delta == null || c.delta <= 0)));   // jamais au-dessus du prix moyen
@@ -866,12 +879,15 @@ $('#quick').addEventListener('click', e => {
 });
 
 /* ============================================================ filtres */
+const sellerF = () => document.querySelector('input[name="sellerF"]:checked')?.value || '';
+document.querySelectorAll('input[name="sellerF"]').forEach(r => r.addEventListener('change', () => { shown = 24; drawGrid(); renderQuick(); }));
 const FILTER_LABELS = { onlyDeals: 'Bonnes affaires', onlyNew: 'Nouvelles', onlyDrop: 'Prix en baisse', onlyFav: '★ Favoris', onlySus: 'Suspectes seulement', noEngine: 'Sans moteurs à surveiller' };
 function activeFilters() {
   const list = Object.keys(FILTER_LABELS).filter(id => $('#' + id).checked).map(id => [id, FILTER_LABELS[id]]);
   if (!$('#hideSus').checked && !$('#onlySus').checked) list.push(['hideSus', 'Suspectes incluses']);
   if ($('#maxDist').value) list.push(['maxDist', `≤ ${$('#maxDist').value} km`]);
   if (searchZip() && !$('#strictRadius').checked) list.push(['strictRadius', 'Hors rayon inclus']);
+  if (sellerF()) list.push(['sellerF', sellerF() === 'pro' ? 'Garages' : 'Particuliers']);
   return list;
 }
 function renderFilterState() {
@@ -882,13 +898,15 @@ function renderFilterState() {
 $('#activeFilters').addEventListener('click', e => {
   const b = e.target.closest('[data-unf]'); if (!b) return;
   const id = b.dataset.unf;
-  if (id === 'maxDist') $('#maxDist').value = ''; else if (id === 'hideSus' || id === 'strictRadius') $('#' + id).checked = true; else $('#' + id).checked = false;
+  if (id === 'sellerF') document.querySelector('input[name="sellerF"][value=""]').checked = true;
+  else if (id === 'maxDist') $('#maxDist').value = ''; else if (id === 'hideSus' || id === 'strictRadius') $('#' + id).checked = true; else $('#' + id).checked = false;
   shown = 24; drawGrid(); renderQuick();
 });
 $('#filtBtn').onclick = () => $('#filtDlg').showModal();
 $('#filtReset').onclick = () => {
   ['onlyDeals', 'onlyNew', 'onlyDrop', 'onlyFav', 'onlySus', 'noEngine'].forEach(id => { $('#' + id).checked = false; });
-  $('#hideSus').checked = true; $('#strictRadius').checked = true; $('#maxDist').value = ''; shown = 24; drawGrid(); renderQuick();
+  $('#hideSus').checked = true; $('#strictRadius').checked = true; $('#maxDist').value = '';
+  document.querySelector('input[name="sellerF"][value=""]').checked = true; shown = 24; drawGrid(); renderQuick();
 };
 
 /* ============================================================ tableau de bord */
@@ -962,11 +980,12 @@ function card(c, i, opts = {}) {
       ${n ? `<div class="deal-line"><span>Négo : vise <b>${fmt(n.target)} €</b> (−${Math.round(n.pct * 100)} %)</span>${spark(c.price_history)}</div>` : ''}
       <div class="specs">${odo(c.km)}<span>${esc(c.first_reg || c.year || '')}</span><span>${esc(c.fuel || '')}</span><span>${esc((c.gear || '').replace(/^Boîte /, ''))}</span><span>${esc(c.power || '')}</span></div>
       <div class="where"><span>${esc([c.zip, c.city].filter(Boolean).join(' '))}${km != null ? (km < 3 ? ' · tout près' : ` · ${km} km`) : ''}</span><span class="age ${old ? 'old' : ''}">${esc(c._from || age)}</span></div>
+      <div class="seller ${c.seller ? (isPro(c) ? 'pro' : 'priv') : ''}">${esc(sellerLabel(c))}</div>
     </div></a>`;
 }
 
 function renderPodium() {
-  const top = cars.filter(isDeal).filter(c => c.delta != null && !($('#strictRadius').checked && outOfRadius(c)) && !($('#noEngine').checked && c.engine_risk)).sort((a, b) => a.delta - b.delta).slice(0, 3);
+  const top = cars.filter(isDeal).filter(c => c.delta != null && !($('#strictRadius').checked && outOfRadius(c)) && !($('#noEngine').checked && c.engine_risk) && (!sellerF() || (sellerF() === 'pro') === isPro(c))).sort((a, b) => a.delta - b.delta).slice(0, 3);
   $('#podiumSec').hidden = !top.length || !!current?.fav;
   $('#podium').innerHTML = top.map((c, i) => card(c, i, { big: true, rank: i + 1, reveal: !reduced })).join('');
 }
@@ -979,6 +998,7 @@ function drawGrid(reveal = false) {
     && ($('#onlySus').checked ? c.suspicious : (!$('#hideSus').checked || !c.suspicious)) && (!$('#onlyFav').checked || favs[c.id])
     && (!$('#noEngine').checked || !c.engine_risk)
     && (!$('#strictRadius').checked || !outOfRadius(c))
+    && (!sellerF() || (sellerF() === 'pro') === isPro(c))
     && (!$('#maxDist').value || (dist(c) ?? Infinity) <= +$('#maxDist').value));
   const key = { deal: c => c.suspicious ? 8 : (c.delta ?? 9), new: c => -(new Date(c.first_seen || 0).getTime() + (c.as24_new ? 6e7 : 0)), price: c => c.price ?? Infinity,
                 '-price': c => -(c.price ?? 0), km: c => c.km ?? Infinity, '-year': c => -(c.year ?? 0),
@@ -1062,7 +1082,7 @@ $('#cmpGo').onclick = () => {
     ['Distance', c => { const d = dist(c); return d != null ? `${d} km (≈ ${Math.round(d * 1.25)} par la route)` : '—'; }, c => dist(c), true],
     ['En ligne', c => days(c) != null ? `${days(c)} j` : '—', c => days(c), false],
     ['Baisse', c => c.price_drop ? `−${fmt(c.price_drop)} €` : '—', c => c.price_drop, false],
-    ['Vendeur', c => esc(c.seller_name || (c.seller === 'Private' ? 'Particulier' : '—'))],
+    ['Vendeur', c => esc(sellerLabel(c) || '—')],
     ['Lieu', c => esc([c.zip, c.city].filter(Boolean).join(' ') || '—')],
     ['', c => `<a href="${esc(c.url)}" target="_blank" rel="noopener">Voir l'annonce ↗</a>`],
   ];

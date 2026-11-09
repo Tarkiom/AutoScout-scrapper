@@ -541,6 +541,9 @@ body::after { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-ar
     <div class="chips">
       <label class="chip"><input type="checkbox" id="noEngine">Sans moteurs à surveiller</label>
     </div>
+    <div class="chips" id="strictWrap" hidden>
+      <label class="chip"><input type="checkbox" id="strictRadius" checked><span id="strictLbl">Rayon strict</span></label>
+    </div>
     <label class="lab" id="maxDistWrap" hidden>Distance de chez moi
       <select class="field" id="maxDist" style="font-size:16px;text-transform:none;letter-spacing:0;font-weight:400">
         <option value="">Toute distance</option><option value="25">≤ 25 km</option><option value="50">≤ 50 km</option><option value="100">≤ 100 km</option>
@@ -650,7 +653,7 @@ body::after { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-ar
     <div class="form">
       <label class="full">Ton code postal<input class="field" id="homeZip" inputmode="numeric" maxlength="4" placeholder="6110"></label>
     </div>
-    <p>Sert à afficher la distance de chaque annonce (estimée par la route) et à trier par proximité. Il reste sur cet appareil.</p>
+    <p>Sert à afficher la distance de chaque annonce (à vol d'oiseau, comme le rayon d'AutoScout24) et à trier par proximité. Sans code postal, la distance est calculée depuis celui de la recherche. Il reste sur cet appareil.</p>
     <div class="formmsg" id="setMsg" role="alert"></div>
     <div class="actions"><button class="btn go" type="submit">Enregistrer</button></div>
 
@@ -712,13 +715,17 @@ const snap = c => Object.fromEntries(SNAP_KEYS.map(k => [k, c[k]]));
 
 let ZIP = null, home = store.get('home_zip') || '';
 async function loadZip() { if (ZIP) return ZIP; try { ZIP = await (await fetch('zip-be.json')).json(); } catch { ZIP = {}; } return ZIP; }
-function dist(c) {
-  if (!home || !ZIP || !c.zip || (c.country && c.country !== 'BE')) return null;
-  const a = ZIP[home], b = ZIP[c.zip]; if (!a || !b) return null;
+// Distances à vol d'oiseau, comme le rayon d'AutoScout24
+function distFrom(from, c) {
+  if (!from || !ZIP || !c.zip || (c.country && c.country !== 'BE')) return null;
+  const a = ZIP[from], b = ZIP[c.zip]; if (!a || !b) return null;
   const r = Math.PI / 180, dLat = (b[0] - a[0]) * r, dLon = (b[1] - a[1]) * r;
   const h = Math.sin(dLat / 2) ** 2 + Math.cos(a[0] * r) * Math.cos(b[0] * r) * Math.sin(dLon / 2) ** 2;
-  return Math.round(2 * 6371 * Math.asin(Math.sqrt(h)) * 1.25);   // ×1,25 : vol d'oiseau -> route
+  return Math.round(2 * 6371 * Math.asin(Math.sqrt(h)));
 }
+const searchZip = () => current?.search?.zip && current?.search?.radius ? current.search.zip : null;
+const dist = c => distFrom(home || searchZip(), c);                       // distance affichée : depuis chez moi, sinon depuis le code postal de la recherche
+const outOfRadius = c => { const z = searchZip(); if (!z) return false; const d = distFrom(z, c); return d != null && d > +current.search.radius; };
 
 let trackStart = null;   // premier passage du scraper sur cette recherche
 const days = c => c.first_seen ? Math.max(0, Math.floor((Date.now() - new Date(c.first_seen)) / 864e5)) : null;
@@ -812,7 +819,10 @@ async function load(slug) {
 
   $('#heroActions').hidden = !!d.fav;
   disarmDelete();
-  if (home) await loadZip();
+  if (home || (d.search && d.search.zip)) await loadZip();
+  const z = searchZip();
+  $('#strictWrap').hidden = !z;
+  if (z) $('#strictLbl').textContent = `Rayon strict : ${current.search.radius} km autour de ${z}`;
   renderQuick(); renderCluster(); renderPodium(); drawChart(); renderModel(); drawGrid(true); renderMarket(); renderSold();
   $('#vnAnn').textContent = fmt(cars.length);
   const nSold = (current?.sold || []).filter(x => !x.suspicious).length;
@@ -861,6 +871,7 @@ function activeFilters() {
   const list = Object.keys(FILTER_LABELS).filter(id => $('#' + id).checked).map(id => [id, FILTER_LABELS[id]]);
   if (!$('#hideSus').checked && !$('#onlySus').checked) list.push(['hideSus', 'Suspectes incluses']);
   if ($('#maxDist').value) list.push(['maxDist', `≤ ${$('#maxDist').value} km`]);
+  if (searchZip() && !$('#strictRadius').checked) list.push(['strictRadius', 'Hors rayon inclus']);
   return list;
 }
 function renderFilterState() {
@@ -871,13 +882,13 @@ function renderFilterState() {
 $('#activeFilters').addEventListener('click', e => {
   const b = e.target.closest('[data-unf]'); if (!b) return;
   const id = b.dataset.unf;
-  if (id === 'maxDist') $('#maxDist').value = ''; else if (id === 'hideSus') $('#hideSus').checked = true; else $('#' + id).checked = false;
+  if (id === 'maxDist') $('#maxDist').value = ''; else if (id === 'hideSus' || id === 'strictRadius') $('#' + id).checked = true; else $('#' + id).checked = false;
   shown = 24; drawGrid(); renderQuick();
 });
 $('#filtBtn').onclick = () => $('#filtDlg').showModal();
 $('#filtReset').onclick = () => {
   ['onlyDeals', 'onlyNew', 'onlyDrop', 'onlyFav', 'onlySus', 'noEngine'].forEach(id => { $('#' + id).checked = false; });
-  $('#hideSus').checked = true; $('#maxDist').value = ''; shown = 24; drawGrid(); renderQuick();
+  $('#hideSus').checked = true; $('#strictRadius').checked = true; $('#maxDist').value = ''; shown = 24; drawGrid(); renderQuick();
 };
 
 /* ============================================================ tableau de bord */
@@ -950,29 +961,32 @@ function card(c, i, opts = {}) {
       ${c.engine_risk ? engineBox(c.engine_risk) : ''}
       ${n ? `<div class="deal-line"><span>Négo : vise <b>${fmt(n.target)} €</b> (−${Math.round(n.pct * 100)} %)</span>${spark(c.price_history)}</div>` : ''}
       <div class="specs">${odo(c.km)}<span>${esc(c.first_reg || c.year || '')}</span><span>${esc(c.fuel || '')}</span><span>${esc((c.gear || '').replace(/^Boîte /, ''))}</span><span>${esc(c.power || '')}</span></div>
-      <div class="where"><span>${esc([c.zip, c.city].filter(Boolean).join(' '))}${km != null ? (km < 4 ? ' · tout près' : ` · ≈ ${km} km`) : ''}</span><span class="age ${old ? 'old' : ''}">${esc(c._from || age)}</span></div>
+      <div class="where"><span>${esc([c.zip, c.city].filter(Boolean).join(' '))}${km != null ? (km < 3 ? ' · tout près' : ` · ${km} km`) : ''}</span><span class="age ${old ? 'old' : ''}">${esc(c._from || age)}</span></div>
     </div></a>`;
 }
 
 function renderPodium() {
-  const top = cars.filter(isDeal).filter(c => c.delta != null).sort((a, b) => a.delta - b.delta).slice(0, 3);
+  const top = cars.filter(isDeal).filter(c => c.delta != null && !($('#strictRadius').checked && outOfRadius(c)) && !($('#noEngine').checked && c.engine_risk)).sort((a, b) => a.delta - b.delta).slice(0, 3);
   $('#podiumSec').hidden = !top.length || !!current?.fav;
   $('#podium').innerHTML = top.map((c, i) => card(c, i, { big: true, rank: i + 1, reveal: !reduced })).join('');
 }
 
-const FILTERS = ['#q', '#order', '#maxDist', '#onlySus', '#noEngine', '#onlyFav', '#onlyNew', '#onlyDeals', '#onlyDrop', '#hideSus'];
+const FILTERS = ['#q', '#order', '#maxDist', '#onlySus', '#noEngine', '#strictRadius', '#onlyFav', '#onlyNew', '#onlyDeals', '#onlyDrop', '#hideSus'];
 function drawGrid(reveal = false) {
   const q = $('#q').value.trim().toLowerCase(), order = $('#order').value;
   const list = cars.filter(c => (!q || [c.make, c.model, c.version, c.city, c.zip, c.fuel, c.gear, c.first_reg, c.seller_name].join(' ').toLowerCase().includes(q))
     && (!$('#onlyNew').checked || isNew(c)) && (!$('#onlyDeals').checked || isDeal(c)) && (!$('#onlyDrop').checked || c.price_drop)
     && ($('#onlySus').checked ? c.suspicious : (!$('#hideSus').checked || !c.suspicious)) && (!$('#onlyFav').checked || favs[c.id])
     && (!$('#noEngine').checked || !c.engine_risk)
+    && (!$('#strictRadius').checked || !outOfRadius(c))
     && (!$('#maxDist').value || (dist(c) ?? Infinity) <= +$('#maxDist').value));
   const key = { deal: c => c.suspicious ? 8 : (c.delta ?? 9), new: c => -(new Date(c.first_seen || 0).getTime() + (c.as24_new ? 6e7 : 0)), price: c => c.price ?? Infinity,
                 '-price': c => -(c.price ?? 0), km: c => c.km ?? Infinity, '-year': c => -(c.year ?? 0),
                 old: c => -(days(c) ?? 0), dist: c => dist(c) ?? Infinity }[order];
   list.sort((a, b) => key(a) - key(b));
-  $('#count').textContent = list.length === cars.length ? `${fmt(cars.length)} annonces` : `${fmt(list.length)} sur ${fmt(cars.length)}`;
+  const nOut = $('#strictRadius').checked ? cars.filter(outOfRadius).length : 0;
+  $('#count').textContent = (list.length === cars.length ? `${fmt(cars.length)} annonces` : `${fmt(list.length)} sur ${fmt(cars.length)}`)
+    + (nOut ? ` · ${nOut} hors rayon masquées` : '');
   renderFilterState();
   const filtering = !!q || activeFilters().length > 0;
   $('#podiumSec').hidden = filtering || !$('#podium').children.length || current?.fav;
@@ -1045,7 +1059,7 @@ $('#cmpGo').onclick = () => {
     ['Moteur', c => c.engine_risk ? `${(ENGINE_LEVEL[c.engine_risk.level] || ENGINE_LEVEL.orange)[0]} ${esc(c.engine_risk.label)}${c.engine_risk.status === 'travaux annoncés' ? `<br><span style="color:var(--deal)">travaux annoncés : ${esc((c.engine_risk.work || []).join(', '))}</span>` : ''}` : 'rien de connu'],
     ['Carburant', c => esc(c.fuel || '—')],
     ['Boîte', c => esc((c.gear || '—').replace(/^Boîte /, ''))],
-    ['Distance', c => { const d = dist(c); return d != null ? `≈ ${d} km` : '—'; }, c => dist(c), true],
+    ['Distance', c => { const d = dist(c); return d != null ? `${d} km (≈ ${Math.round(d * 1.25)} par la route)` : '—'; }, c => dist(c), true],
     ['En ligne', c => days(c) != null ? `${days(c)} j` : '—', c => days(c), false],
     ['Baisse', c => c.price_drop ? `−${fmt(c.price_drop)} €` : '—', c => c.price_drop, false],
     ['Vendeur', c => esc(c.seller_name || (c.seller === 'Private' ? 'Particulier' : '—'))],

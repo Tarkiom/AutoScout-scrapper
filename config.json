@@ -1,6 +1,7 @@
 {
   "max_pages": 100,
   "delay_seconds": 2,
+  "interval_hours": 6,
   "searches": [
     {
       "price_to": "4000",

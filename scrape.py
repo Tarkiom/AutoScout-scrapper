@@ -484,6 +484,7 @@ def main():
     ap.add_argument("--max-pages", type=int, default=None)
     ap.add_argument("--search-json", help="recherche complète en JSON (envoyée par le site)")
     ap.add_argument("--watch", action="store_true", help="ajoute la recherche à config.json (scraping toutes les 6 h)")
+    ap.add_argument("--due-only", action="store_true", help="passage planifié : ne scrape que les recherches pas mises à jour depuis interval_hours")
     a = ap.parse_args()
 
     cfg = json.loads((ROOT / "config.json").read_text("utf-8"))
@@ -538,6 +539,28 @@ def main():
     searches = [cli] if cli else cfg["searches"]
     if not searches:
         sys.exit("Aucune recherche : passe --make/--model ou remplis config.json")
+
+    if a.due_only and not cli:
+        hours = float(cfg.get("interval_hours", 6))
+        due = []
+        for srch in searches:
+            f = DATA / f"{search_slug(srch)}.json"
+            last = None
+            if f.exists():
+                try:
+                    last = json.loads(f.read_text("utf-8")).get("updated")
+                except ValueError:
+                    last = None
+            age_h = (datetime.now(timezone.utc) - datetime.fromisoformat(last)).total_seconds() / 3600 if last else None
+            if age_h is None or age_h >= hours - 0.4:   # marge : un passage un peu en avance compte
+                due.append(srch)
+                print(f"À mettre à jour : {search_label(srch)} ({'jamais' if age_h is None else f'il y a {age_h:.1f} h'})")
+            else:
+                print(f"À jour : {search_label(srch)} (il y a {age_h:.1f} h)")
+        if not due:
+            print("Rien à faire pour ce passage.")
+            return
+        searches = due
 
     results = [run_search(s, max_pages) for s in searches]
 

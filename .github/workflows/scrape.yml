@@ -37,9 +37,10 @@ on:
         type: boolean
         required: false
         default: false
-  # Automatique : toutes les 6 heures, sur les recherches de config.json
+  # Automatique : réveil toutes les heures (le planificateur de GitHub saute parfois des passages).
+  # Chaque recherche surveillée n'est scrapée que si sa dernière mise à jour date de plus de interval_hours (config.json).
   schedule:
-    - cron: "17 */6 * * *"
+    - cron: "23 * * * *"
 
 permissions:
   contents: write
@@ -86,6 +87,7 @@ jobs:
           [ -n "$IN_MAX_PAGES" ] && args+=(--max-pages "$IN_MAX_PAGES")
           [ -n "$IN_SEARCH_JSON" ] && args+=(--search-json "$IN_SEARCH_JSON")
           [ "$IN_WATCH" = "true" ] && args+=(--watch)
+          [ "${{ github.event_name }}" = "schedule" ] && args+=(--due-only)
           python scrape.py "${args[@]}"
 
       - name: Enregistrer les résultats

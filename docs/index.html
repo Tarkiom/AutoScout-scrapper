@@ -394,6 +394,10 @@ body::after { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-ar
 .c-foot .row1 { display: flex; justify-content: space-between; gap: 10px; }
 .c-foot .row1 span:last-child { white-space: nowrap; }
 .c-foot .seller { font-size: 13px; }
+.c-call { display: flex; gap: 8px; margin-top: 2px; }
+.c-call span { flex: 1; display: inline-flex; align-items: center; justify-content: center; gap: 8px; border-radius: 11px; padding: 11px 12px; font-weight: 700; font-size: 14px; cursor: pointer; text-align: center; }
+.c-call .tel { background: var(--deal); color: #052014; font-family: var(--f-mono); font-size: 13.5px; }
+.c-call .see { background: var(--panel-2); color: var(--chalk); border: 1px solid var(--line); }
 .card .body { gap: 12px; padding: 14px 14px 15px; }
 .as24 { font-size: 12px; color: var(--dim); }
 .as24 b { color: var(--chalk); font-weight: 600; }
@@ -730,7 +734,7 @@ let favs = readJSON('favs', {});           // id -> { slug, label, snap, savedAt
 let cmpIds = [];                            // jusqu'à 3 annonces
 const saveFavs = () => store.set('favs', JSON.stringify(favs));
 const SNAP_KEYS = ['id', 'url', 'make', 'model', 'version', 'price', 'price_label', 'km', 'year', 'first_reg', 'fuel', 'gear', 'power', 'zip', 'city', 'country',
-                   'seller', 'seller_name', 'image', 'delta', 'expected_price', 'suspicious', 'flags', 'first_seen', 'price_history', 'price_drop', 'is_new', 'as24_new', 'engine_risk'];
+                   'seller', 'seller_name', 'image', 'delta', 'expected_price', 'suspicious', 'flags', 'first_seen', 'price_history', 'price_drop', 'is_new', 'as24_new', 'engine_risk', 'phones'];
 const snap = c => Object.fromEntries(SNAP_KEYS.map(k => [k, c[k]]));
 
 let ZIP = null, home = store.get('home_zip') || '';
@@ -1018,6 +1022,9 @@ function card(c, i, opts = {}) {
         <div class="row1"><span>📍 ${esc(c.city || c.zip || '—')}${km != null ? (km < 3 ? ' · tout près' : ` · ${km} km`) : ''}</span><span class="age ${old ? 'old' : ''}">${esc(c._from || age)}</span></div>
         <div class="seller ${c.seller ? (isPro(c) ? 'pro' : 'priv') : ''}">${esc(sellerLabel(c))}${c.power ? `<span style="color:var(--faint);font-weight:500"> · ${esc(c.power)}</span>` : ''}</div>
       </div>
+      <div class="c-call">${c.phones?.length
+        ? c.phones.slice(0, 1).map(p => `<span class="tel" data-tel="${esc(p.tel)}">📞 ${esc(p.number)}</span>`).join('')
+        : `<span class="see">📞 Voir le numéro sur AutoScout24</span>`}</div>
     </div></a>`;
 }
 
@@ -1066,6 +1073,8 @@ $('#more').onclick = () => { shown += 24; drawGrid(); };
 
 /* ============================================================ favoris & comparaison (clics sur les cartes) */
 document.addEventListener('click', e => {
+  const tel = e.target.closest('[data-tel]');
+  if (tel) { e.preventDefault(); e.stopPropagation(); location.href = 'tel:' + tel.dataset.tel; return; }
   const src = e.target.closest('[data-href]');
   if (src) { e.preventDefault(); e.stopPropagation(); window.open(src.dataset.href, '_blank', 'noopener'); return; }
   const eng = e.target.closest('[data-eng]');
@@ -1120,6 +1129,7 @@ $('#cmpGo').onclick = () => {
     ['En ligne', c => days(c) != null ? `${days(c)} j` : '—', c => days(c), false],
     ['Baisse', c => c.price_drop ? `−${fmt(c.price_drop)} €` : '—', c => c.price_drop, false],
     ['Vendeur', c => esc(sellerLabel(c) || '—')],
+    ['Téléphone', c => c.phones?.length ? `<a href="tel:${esc(c.phones[0].tel)}">${esc(c.phones[0].number)}</a>` : 'sur l\'annonce'],
     ['Lieu', c => esc([c.zip, c.city].filter(Boolean).join(' ') || '—')],
     ['', c => `<a href="${esc(c.url)}" target="_blank" rel="noopener">Voir l'annonce ↗</a>`],
   ];

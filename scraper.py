@@ -198,6 +198,10 @@ def _from_next_data(html: str) -> tuple[list[dict], int | None, int | None] | No
             "seller": seller.get("type"),
             "seller_name": seller.get("companyName") or seller.get("contactName"),
             "as24_new": bool(l.get("isOfferNew")),
+            # Téléphone : uniquement pour les garages (numéro professionnel). Les numéros des particuliers
+            # ne sont pas recopiés dans ce repo public : le site renvoie vers l'annonce pour les voir.
+            "phones": [{"label": p.get("phoneType"), "number": p.get("formattedNumber"), "tel": p.get("callTo")}
+                       for p in (seller.get("phones") or []) if p.get("callTo")] if (seller.get("type") or "").lower() == "dealer" else [],
             "image": imgs[0] if imgs else None,
             "image_count": len(imgs),
         })

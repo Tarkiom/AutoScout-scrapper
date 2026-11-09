@@ -404,6 +404,11 @@ def engine_risk(c: dict):
     make_k = {"mercedes benz": "mercedes", "ds automobiles": "ds"}.get(make_k, make_k)
     c2 = dict(c, make_k=make_k, gear_k=(c.get("gear") or "").lower())
     text = f"{c.get('model') or ''} {c.get('version') or ''} {c.get('subtitle') or ''}".lower()
+    # écritures variables des vendeurs : « Pure Tech », « Eco-Boost », « Blue HDi », « DIG T »…
+    for pat, rep_ in ((r"pure[\s_-]*tech", "puretech"), (r"eco[\s_-]+boost", "ecoboost"), (r"eco[\s_-]+blue", "ecoblue"),
+                      (r"blue[\s_-]+hdi", "bluehdi"), (r"\be[\s_-]+hdi", "e-hdi"), (r"\bdig[\s_]+t\b", "dig-t"),
+                      (r"\bt[\s_-]+fsi\b", "tfsi"), (r"\bt[\s_-]+si\b", "tsi"), (r"\b(\d)\s*[.,]\s*(\d)\b", r"\1.\2")):
+        text = re.sub(pat, rep_, text)
     fuel = (c.get("fuel") or "").lower()
     for r in ENGINE_RISKS:
         try:

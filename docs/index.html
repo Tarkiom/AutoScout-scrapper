@@ -261,6 +261,9 @@ dialog[open] .sheet { animation: up .28s cubic-bezier(.2,.8,.2,1); }
 .spark path { fill: none; stroke: var(--deal); stroke-width: 1.6; stroke-linejoin: round; stroke-linecap: round; }
 .spark circle { fill: var(--deal); }
 .age { white-space: nowrap; }
+.engine.red { color: var(--warn); background: var(--warn-bg); }
+.engine.yellow { color: var(--dim); background: var(--panel-2); }
+.engine .src { display: inline-block; margin-top: 6px; text-decoration: underline; color: var(--chalk); opacity: .8; }
 .engine { font-size: 12.5px; color: var(--new); background: var(--new-bg); border-radius: 8px; padding: 7px 9px; line-height: 1.4; border: 0; text-align: left; cursor: pointer; font-family: inherit; }
 .engine b { font-weight: 700; }
 .engine .tip { display: none; color: var(--chalk); margin-top: 4px; font-size: 12px; }
@@ -907,6 +910,14 @@ function renderCluster() {
 }
 
 /* ============================================================ cartes */
+const ENCYCLO = 'https://claude.ai/artifact/62bhyuTsn4U2Rhtd31qNHQ';
+const ENGINE_LEVEL = { red: ['🔴', 'À éviter'], orange: ['🟠', 'Très risqué'], yellow: ['🟡', 'À surveiller'] };
+function engineBox(r) {
+  const [dot, word] = ENGINE_LEVEL[r.level] || ENGINE_LEVEL.orange;
+  return `<button type="button" class="engine ${r.level || 'orange'}" data-eng aria-expanded="false">${dot} <b>${word}</b> : ${esc(r.label)} <span style="opacity:.7">· pourquoi ?</span>`
+    + `<span class="tip">${esc(r.tip)}<br><span class="src" data-href="${ENCYCLO}">Voir l'encyclopédie des moteurs ↗</span></span></button>`;
+}
+
 function card(c, i, opts = {}) {
   const d = c.delta, lab0 = LABELS[label(c)];
   // si AS24 dit « bon prix » mais que l'annonce est au-dessus du prix moyen, la pastille reste neutre
@@ -931,7 +942,7 @@ function card(c, i, opts = {}) {
       <div class="title"><b>${esc(c.make)} ${esc(c.model)}</b><span>${esc(c.version) || '&nbsp;'}</span></div>
       <div class="verdict">${verdict}${c.expected_price ? `<span class="expected">prix moyen ≈ ${fmt(c.expected_price)} €</span>` : ''}${lab ? `<span class="pill ${lab[1]}">${lab[0]}</span>` : ''}</div>
       ${c.flags?.length ? `<div class="flags">⚠ ${c.flags.map(esc).join(' · ')}</div>` : ''}
-      ${c.engine_risk ? `<button type="button" class="engine" data-eng aria-expanded="false">⚙ <b>Moteur à surveiller</b> : ${esc(c.engine_risk.label)} <span style="opacity:.7">· voir pourquoi</span><span class="tip">${esc(c.engine_risk.tip)}</span></button>` : ''}
+      ${c.engine_risk ? engineBox(c.engine_risk) : ''}
       ${n ? `<div class="deal-line"><span>Négo : vise <b>${fmt(n.target)} €</b> (−${Math.round(n.pct * 100)} %)</span>${spark(c.price_history)}</div>` : ''}
       <div class="specs">${odo(c.km)}<span>${esc(c.first_reg || c.year || '')}</span><span>${esc(c.fuel || '')}</span><span>${esc((c.gear || '').replace(/^Boîte /, ''))}</span><span>${esc(c.power || '')}</span></div>
       <div class="where"><span>${esc([c.zip, c.city].filter(Boolean).join(' '))}${km != null ? (km < 4 ? ' · tout près' : ` · ≈ ${km} km`) : ''}</span><span class="age ${old ? 'old' : ''}">${esc(c._from || age)}</span></div>
@@ -979,6 +990,8 @@ $('#more').onclick = () => { shown += 24; drawGrid(); };
 
 /* ============================================================ favoris & comparaison (clics sur les cartes) */
 document.addEventListener('click', e => {
+  const src = e.target.closest('[data-href]');
+  if (src) { e.preventDefault(); e.stopPropagation(); window.open(src.dataset.href, '_blank', 'noopener'); return; }
   const eng = e.target.closest('[data-eng]');
   if (eng) { e.preventDefault(); e.stopPropagation(); eng.setAttribute('aria-expanded', eng.getAttribute('aria-expanded') !== 'true'); return; }
 }, true);
@@ -1024,7 +1037,7 @@ $('#cmpGo').onclick = () => {
     ['Km', c => fmt(c.km), c => c.km, true],
     ['Année', c => esc(c.first_reg || c.year || '—'), c => c.year, false],
     ['Puissance', c => esc(c.power || '—')],
-    ['Moteur', c => c.engine_risk ? `<span style="color:var(--new)">⚙ ${esc(c.engine_risk.label)}</span>` : 'rien de connu'],
+    ['Moteur', c => c.engine_risk ? `${(ENGINE_LEVEL[c.engine_risk.level] || ENGINE_LEVEL.orange)[0]} ${esc(c.engine_risk.label)}` : 'rien de connu'],
     ['Carburant', c => esc(c.fuel || '—')],
     ['Boîte', c => esc((c.gear || '—').replace(/^Boîte /, ''))],
     ['Distance', c => { const d = dist(c); return d != null ? `≈ ${d} km` : '—'; }, c => dist(c), true],

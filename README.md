@@ -42,6 +42,7 @@ Chaque run :
 - **Le marché** : prix médian et fourchette, jour après jour.
 - **Distance** depuis ton code postal (réglages), tri par proximité et rayon max.
 - **Favoris** (★, gardés sur l'appareil) et **comparateur** jusqu'à 3 voitures.
+- **Moteurs à surveiller** 🔴 / 🟠 / 🟡 d'après l'[Encyclopédie des moteurs à éviter en occasion](https://claude.ai/artifact/62bhyuTsn4U2Rhtd31qNHQ) (17 moteurs, périodes et conseils d'achat), plus deux boîtes auto fragiles.
 - **App installable** : dans Safari, Partager → *Sur l'écran d'accueil*.
 
 ## En local

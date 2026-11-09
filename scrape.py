@@ -227,48 +227,115 @@ def price_model(cars: list[dict]):
     return predict, infos, oof
 
 
-# Motorisations et boîtes connues pour des faiblesses récurrentes (points à vérifier, pas une condamnation).
-PSA = ("peugeot", "citroen", "ds", "opel")
+# Moteurs à surveiller : repris de l'« Encyclopédie des moteurs à éviter en occasion » de Tarkiom
+# (17 moteurs, défauts documentés par au moins deux sources indépendantes).
+# Niveaux : red = à éviter absolument, orange = très risqué, yellow = à surveiller.
+# L'année utilisée est celle de la 1re immatriculation : la date de production du moteur peut être antérieure.
+ENCYCLO_URL = "https://claude.ai/artifact/62bhyuTsn4U2Rhtd31qNHQ"
+PSA = ("peugeot", "citroen", "ds")
 VAG = ("volkswagen", "audi", "seat", "skoda", "cupra")
+
+
+def _has(t: str, pat: str) -> bool:
+    return re.search(pat, t) is not None
+
+
+def _opel_puretech(c, t):
+    m = (c.get("model") or "").lower()
+    return ("puretech" in t or _has(t, r"\b1[.,]2\b")) and (
+        (any(k in m for k in ("crossland", "grandland")) and c["year"] >= 2017) or
+        (any(k in m for k in ("corsa", "mokka")) and c["year"] >= 2020))
+
+
 ENGINE_RISKS = [
-    {"key": "puretech", "label": "PureTech 1.0 / 1.2",
-     "tip": "Courroie de distribution qui baigne dans l'huile et se désagrège, consommation d'huile. Demande la facture du remplacement de courroie et vérifie le niveau d'huile.",
-     "test": lambda c, t, f: c["make_k"] in PSA and ("puretech" in t or (re.search(r"\b1[.,]2\b", t) and "essence" in f and c["make_k"] != "opel")) and 2013 <= c["year"] <= 2022},
-    {"key": "ecoboost", "label": "1.0 EcoBoost",
-     "tip": "Courroie humide et risque de surchauffe (fuite de liquide de refroidissement). Vérifie l'historique d'entretien et l'absence de perte de liquide.",
-     "test": lambda c, t, f: c["make_k"] == "ford" and ("ecoboost" in t or (re.search(r"\b1[.,]0\b", t) and "essence" in f)) and 2012 <= c["year"] <= 2019},
-    {"key": "tsi-ea111", "label": "1.2 / 1.4 TSI (1re génération)",
-     "tip": "Chaîne de distribution qui s'allonge (bruit de ferraille au démarrage à froid). Écoute le moteur à froid, demande si la chaîne a été changée.",
-     "test": lambda c, t, f: c["make_k"] in VAG and re.search(r"\b1[.,][24]\s*t?fsi|\b1[.,][24]\s*tsi", t) and c["year"] <= 2012},
-    {"key": "tce-h5ft", "label": "1.2 TCe / DIG-T (2012-2016)",
-     "tip": "Moteur H5Ft connu pour sa consommation d'huile qui peut aller jusqu'à la casse. Vérifie le niveau d'huile, demande si la mise à jour Renault a été faite et l'historique d'entretien.",
+    # ---------------------------------------------------------------- 🔴
+    {"key": "puretech", "level": "red", "label": "PureTech 1.0 / 1.2 (EB0 / EB2)",
+     "tip": "Courroie de distribution qui baigne dans l'huile et se délite : les débris bouchent la crépine de pompe à huile (casse moteur possible) et peuvent toucher l'assistance de freinage. Stellantis l'a reconnu (extension 10 ans / 175 000 km). N'acheter qu'avec une facture de remplacement de courroie récente et des vidanges respectées, ou un moteur Gen 3 à chaîne.",
+     "test": lambda c, t, f: c["year"] >= 2012 and "essence" in f and (
+         (c["make_k"] in PSA and ("puretech" in t or _has(t, r"\be?-?vti\b|\b1[.,][02]\s*vti|\bvti\s*(68|72|82)\b") or _has(t, r"\b1[.,]2\b")))
+         or (c["make_k"] == "opel" and _opel_puretech(c, t)))},
+    {"key": "ecoboost10", "level": "red", "label": "Ford 1.0 EcoBoost",
+     "tip": "Deux défauts reconnus par Ford : durite de refroidissement qui casse à chaud (Focus 2011-2013, surchauffe, casse, voire incendie) et courroie humide qui se dégrade et bouche la crépine d'huile. Exiger la preuve de la campagne durite et du remplacement de courroie, et l'huile spécifiée par Ford.",
+     "test": lambda c, t, f: c["make_k"] == "ford" and "essence" in f and c["year"] >= 2011 and ("ecoboost" in t or _has(t, r"\b1[.,]0\b")) and not _has(t, r"\b1[.,][5-6]\b")},
+    {"key": "ecoboost16", "level": "red", "label": "Ford 1.6 EcoBoost / GTDi",
+     "tip": "Manque de circulation de liquide de refroidissement : fissure de culasse, fuite d'huile sous pression, risque d'incendie (rappel mondial 17S09, qui ajoute seulement une alerte de niveau). Exiger la preuve du rappel et surveiller le niveau de liquide.",
+     "test": lambda c, t, f: c["year"] <= 2015 and c["year"] >= 2010 and "essence" in f and (
+         (c["make_k"] == "ford" and (_has(t, r"\b1[.,]6\s*(eco\s?boost|gtdi|scti)|\bst\b") or (_has(t, r"\b1[.,]6\b") and "ecoboost" in t)))
+         or (c["make_k"] == "volvo" and _has(t, r"\bt[34]\b") and _has(t, r"\b1[.,]6\b")))},
+    {"key": "ea888g2", "level": "red", "label": "1.8 / 2.0 TFSI EA888 (gén. 2)",
+     "tip": "Segments de piston qui laissent passer l'huile : grosse consommation d'huile, encrassement, casse de pistons possible (bulletins Audi, règlements aux États-Unis). Corrigé progressivement à partir du millésime 2012 et sur la génération 3. Contrôler la consommation d'huile et le code moteur (CAEB, CDNC, CCZA, CDAA…).",
+     "test": lambda c, t, f: c["make_k"] in VAG and "essence" in f and 2008 <= c["year"] <= 2013 and (_has(t, r"\b(1[.,]8|2[.,]0)\s*t?fsi|\b(1[.,]8|2[.,]0)\s*tsi\b") or ("gti" in t and c["year"] <= 2012))},
+    {"key": "h5ft", "level": "red", "label": "1.2 TCe / DIG-T (H5Ft)",
+     "tip": "Moteurs produits d'octobre 2012 à juillet 2016 : surconsommation d'huile qui abîme les soupapes, puis casse moteur (168 682 véhicules recensés en France). Exiger la preuve de la nouvelle calibration (2015), contrôler la consommation d'huile, pas de fumée bleue.",
      "test": lambda c, t, f: _h5ft(c, t) and 2012 <= c["year"] <= 2016},
-    {"key": "tce-h5ft-late", "label": "1.2 TCe / DIG-T (2017-2019)",
-     "tip": "Même moteur H5Ft : Renault a corrigé une partie du problème fin 2016, le risque est plus faible mais pas nul. Vérifie le niveau d'huile à froid et demande l'historique d'entretien.",
-     "test": lambda c, t, f: _h5ft(c, t) and 2017 <= c["year"] <= 2019},
-    {"key": "thp", "label": "1.6 THP / Mini Cooper S",
-     "tip": "Chaîne de distribution et consommation d'huile (moteur « Prince »). Écoute le démarrage à froid et vérifie l'entretien.",
-     "test": lambda c, t, f: (("thp" in t and c["make_k"] in PSA) or (c["make_k"] == "mini" and "cooper s" in t)) and c["year"] <= 2015},
-    {"key": "n47", "label": "BMW 2.0 diesel (N47)",
-     "tip": "Chaîne de distribution côté boîte, coûteuse à remplacer. Écoute un sifflement / cliquetis moteur, demande si elle a été changée.",
-     "test": lambda c, t, f: c["make_k"] == "bmw" and "diesel" in f and re.search(r"\b(1|3|5|x1|x3)?\s?(16|18|20|25)d\b|\b(116|118|120|316|318|320|520|525)d\b", f"{c.get('model', '')} {t}".lower()) and c["year"] <= 2014},
-    {"key": "dq200", "label": "Boîte DSG 7 (sèche)",
-     "tip": "Mécatronique et embrayage fragiles. Fais un essai avec des démarrages lents et des à-coups, demande l'historique.",
-     "test": lambda c, t, f: c["make_k"] in VAG and "auto" in c["gear_k"] and ("dsg" in t or re.search(r"\b1[.,][0-4]\b", t)) and c["year"] <= 2016},
-    {"key": "powershift", "label": "Boîte Ford Powershift",
-     "tip": "Embrayage à double plateau sec qui broute et claque. Fais un essai en ville, demande si l'embrayage a été changé sous garantie.",
-     "test": lambda c, t, f: c["make_k"] == "ford" and "auto" in c["gear_k"] and re.search(r"fiesta|focus|b-max|c-max|ecosport", (c.get("model") or "").lower()) and 2011 <= c["year"] <= 2018},
+    {"key": "h5ft-late", "level": "yellow", "label": "1.2 TCe / DIG-T (après la période à risque)",
+     "tip": "Même moteur H5Ft, mais les moteurs produits après juillet 2016 sont hors de la période à risque. Une voiture immatriculée en 2017 peut cependant avoir un moteur fabriqué avant : vérifier la date de production et la consommation d'huile.",
+     "test": lambda c, t, f: _h5ft(c, t) and 2017 <= c["year"] <= 2018},
+    {"key": "n63", "level": "red", "label": "BMW 4.4 V8 N63 (1re gén.)",
+     "tip": "Consommation d'huile massive (joints de soupapes cuits par les turbos), injecteurs, chaîne (Customer Care Package aux États-Unis). La version N63TU à partir de 2012-2013 est nettement meilleure.",
+     "test": lambda c, t, f: c["make_k"] == "bmw" and "essence" in f and c["year"] <= 2012 and _has(f"{(c.get('model') or '').lower()} {t}", r"\b(550|650|750)i\b|\bx[56]\s*(xdrive)?\s*50i\b|\b50i\b|\b4[.,]4\b")},
+    {"key": "tdv6", "level": "red", "label": "Land Rover 2.7 / 3.0 TDV6",
+     "tip": "Rupture de vilebrequin ou rotation des coussinets : moteur serré, déclaré non réparable par Land Rover (bulletins SSM71816 et SSM72578). Contrôler le niveau d'huile et l'entretien, écouter un grondement ou claquement moteur.",
+     "test": lambda c, t, f: c["make_k"] == "land rover" and "diesel" in f and c["year"] <= 2012 and _has(t, r"tdv6|sdv6|\b2[.,]7\b|\b3[.,]0\b|td\s?v6")},
+    {"key": "ea111", "level": "red", "label": "1.2 / 1.4 TSI EA111 (à chaîne)",
+     "tip": "Chaîne de distribution qui s'allonge, tendeur défaillant, saut de chaîne et casse moteur ; casse de pistons en plus sur le 1.4 TSI Twincharger (CAVD). Écouter un démarrage à froid : un cliquetis de plus de 2 secondes est mauvais signe.",
+     "test": lambda c, t, f: c["make_k"] in VAG and "essence" in f and c["year"] <= 2012 and _has(t, r"\b1[.,][24]\s*t?fsi|\b1[.,][24]\s*tsi")},
+    {"key": "ea111-ea211", "level": "orange", "label": "1.2 / 1.4 TSI (2013-2014 : chaîne ou courroie ?)",
+     "tip": "En 2013-2014, le même nom couvre l'ancien moteur à chaîne fragile (EA111 : codes CBZ, CAX, CAV, CTH) et le nouveau à courroie, sain (EA211). Vérifier le code moteur : sur Golf 7 / Polo 6C c'est l'EA211, sur Golf 6 / Polo 6R souvent l'EA111.",
+     "test": lambda c, t, f: c["make_k"] in VAG and "essence" in f and 2013 <= c["year"] <= 2014 and _has(t, r"\b1[.,][24]\s*t?fsi|\b1[.,][24]\s*tsi")},
+    {"key": "n47", "level": "red", "label": "BMW 2.0d N47",
+     "tip": "Chaîne de distribution à l'arrière du moteur qui s'allonge puis casse (moteur détruit) ; dépose de la boîte pour la changer. Surtout les moteurs d'avant mars 2011. Un N47 avec chaîne déjà remplacée et entretien suivi est un bon diesel : demander la facture.",
+     "test": lambda c, t, f: "diesel" in f and c["year"] <= 2014 and (
+         (c["make_k"] == "bmw" and _has(f"{(c.get('model') or '').lower()} {t}", r"\b(116|118|120|123|316|318|320|325|420|520|525)\s?d\b|\bx[13]\s*(s|x)?drive\s*(18|20|25)\s?d\b|\bx[13]\s*(18|20|25)\s?d\b|\b(18|20|25)d\b"))
+         or (c["make_k"] == "mini" and _has(t, r"cooper\s*s?d\b") and _has(t, r"\b2[.,]0\b")))},
+    {"key": "prince", "level": "red", "label": "1.6 THP « Prince » / Mini Cooper S",
+     "tip": "Chaîne de distribution qui s'allonge et tendeur défaillant (saut de chaîne = casse), consommation d'huile, calamine. Les EP6CDT d'après 2013 sont moins touchés mais pas immunisés. Ne pas acheter sans facture de distribution, écouter le démarrage à froid.",
+     "test": lambda c, t, f: "essence" in f and (
+         (c["make_k"] in PSA + ("opel",) and c["year"] <= 2016 and (_has(t, r"\bthp\b") or _has(t, r"\b1[.,]6\s*t\b|\b1[.,]6\s*turbo")))
+         or (c["make_k"] == "mini" and c["year"] <= 2014 and _has(t, r"cooper\s*s\b|\bjcw\b|john cooper")))},
+    # ---------------------------------------------------------------- 🟠
+    {"key": "pentastar", "level": "orange", "label": "3.6 Pentastar V6",
+     "tip": "Usure des soupapes de la culasse gauche (tic moteur, ratés) sur les moteurs 2011 à début 2013 ; culasse garantie 10 ans aux États-Unis. Réparable par remplacement de culasse, le reste du moteur est solide.",
+     "test": lambda c, t, f: c["make_k"] in ("jeep", "lancia", "chrysler", "dodge") and "essence" in f and 2011 <= c["year"] <= 2013 and _has(t, r"\b3[.,]6\b")},
+    {"key": "gdi", "level": "orange", "label": "Hyundai / Kia 1.6 GDI / 2.0 GDI",
+     "tip": "Usure des coussinets de bielle, consommation d'huile (plus d'1 L / 1 000 km) et claquement de piston à froid documentés sur 2012-2016. Contrôler la consommation d'huile et écouter le moteur à froid ; les versions MPI ne sont pas concernées.",
+     "test": lambda c, t, f: c["make_k"] in ("hyundai", "kia") and "essence" in f and 2010 <= c["year"] <= 2016 and _has(t, r"\bgdi\b") and not _has(t, r"t-?gdi")},
+    {"key": "om651", "level": "orange", "label": "Mercedes 2.1 CDI (OM651)",
+     "tip": "Injecteurs Delphi piézo défaillants sur les 220 / 250 CDI de 2009-2011 (la plupart remplacés), et chaîne de distribution simplex fragile côté boîte. Vérifier que les injecteurs ont été changés et écouter la distribution.",
+     "test": lambda c, t, f: c["make_k"] == "mercedes" and "diesel" in f and 2009 <= c["year"] <= 2016 and _has(f"{(c.get('model') or '').lower()} {t}", r"\b(180|200|220|250)\s*(cdi|d|bluetec)\b|\b2[.,]1\b")},
+    {"key": "skyactivd", "level": "orange", "label": "Mazda 2.2 Skyactiv-D",
+     "tip": "Huile diluée par le gazole lors des régénérations du FAP (le niveau monte), rondelles d'injecteurs qui fuient, perte de pression d'huile. À éviter pour un usage urbain ; acceptable pour gros rouleur avec vidanges rapprochées et logiciel à jour.",
+     "test": lambda c, t, f: c["make_k"] == "mazda" and "diesel" in f and c["year"] >= 2012 and (_has(t, r"\b2[.,]2\b") or _has(t, r"skyactiv-?d\s*(150|175|184)"))},
+    {"key": "dv6-16v", "level": "orange", "label": "1.6 HDi / TDCi 16 soupapes (DV6)",
+     "tip": "Joints d'injecteurs qui fuient : calamine dans l'huile, conduite d'huile du turbo bouchée, casse turbo à répétition. Sur une 2010-2011, vérifier si c'est un 16 soupapes (à risque) ou un 8 soupapes e-HDi / 92 / 115 (sain).",
+     "test": lambda c, t, f: "diesel" in f and c["year"] <= 2011 and c["make_k"] in PSA + ("ford", "mini", "volvo", "mazda") and _has(t, r"\b1[.,]6\s*(hdi|tdci|d)\b|\bhdi\s*(90|110)\b") and not _has(t, r"e-?hdi|bluehdi|hdi\s*(92|115)")},
+    {"key": "ingenium", "level": "orange", "label": "2.0 Ingenium diesel (avant 2019-2020)",
+     "tip": "Allongement des chaînes de distribution, huile diluée par le gazole (régénérations FAP), casse turbo par manque de lubrification. Pas de rappel ; exiger l'historique d'entretien et écouter la distribution.",
+     "test": lambda c, t, f: c["make_k"] in ("land rover", "jaguar") and "diesel" in f and 2015 <= c["year"] <= 2019 and _has(t, r"\b2[.,]0\b|\btd4\b|\bed4\b|\bd(150|165|180|200|240)\b|\b(20|25)d\b")},
+    # ---------------------------------------------------------------- 🟡
+    {"key": "m271", "level": "yellow", "label": "Mercedes 1.8 Kompressor / CGI (M271)",
+     "tip": "Chaîne, tendeur et déphaseurs d'arbres à cames qui s'usent (signalements jusqu'en mars 2012). Achetable avec facture de distribution ou contrôle du calage ; écouter un démarrage à froid complet.",
+     "test": lambda c, t, f: c["make_k"] == "mercedes" and "essence" in f and c["year"] <= 2012 and (_has(t, r"kompressor|\bcgi\b|\b1[.,]8\b") or _has(f"{(c.get('model') or '').lower()} {t}", r"\b(c|e|clk|slk)\s*(180|200|250)\b"))},
+    # ---------------------------------------------------------------- boîtes (hors encyclopédie)
+    {"key": "dq200", "level": "yellow", "label": "Boîte DSG 7 à embrayage sec (hors encyclopédie)",
+     "tip": "Mécatronique et embrayage fragiles. Faire un essai avec des démarrages lents et des à-coups, demander l'historique. Point non couvert par l'encyclopédie.",
+     "test": lambda c, t, f: c["make_k"] in VAG and "auto" in c["gear_k"] and ("dsg" in t or _has(t, r"\b1[.,][0-4]\b")) and c["year"] <= 2016},
+    {"key": "powershift", "level": "yellow", "label": "Boîte Ford Powershift (hors encyclopédie)",
+     "tip": "Embrayage à double plateau sec qui broute et claque. Faire un essai en ville, demander si l'embrayage a été changé. Point non couvert par l'encyclopédie.",
+     "test": lambda c, t, f: c["make_k"] == "ford" and "auto" in c["gear_k"] and _has((c.get("model") or "").lower(), r"fiesta|focus|b-max|c-max|ecosport") and 2011 <= c["year"] <= 2018},
 ]
 
 
 def _h5ft(c: dict, t: str) -> bool:
-    """1.2 TCe Renault/Dacia (115 à 130 ch) et 1.2 DIG-T Nissan : même moteur H5Ft."""
-    if re.search(r"\b(0[.,]9|1[.,]0|1[.,]33?|1[.,]6)\b", t):   # autres moteurs TCe (0.9, 1.0, 1.3, 1.6) : pas concernés
+    """1.2 TCe Renault/Dacia (115 à 130 ch), 1.2 DIG-T Nissan et Mercedes Citan 1.2 : même moteur H5Ft."""
+    if _has(t, r"\b(0[.,]9|1[.,]0|1[.,]33?|1[.,]6)\b"):   # autres moteurs TCe (0.9, 1.0, 1.3, 1.6) : pas concernés
         return False
     if c["make_k"] in ("renault", "dacia"):
-        return bool(re.search(r"\b1[.,]2\s*tce|\btce\s*(1(15|18|20|25|30))\b", t))
+        return _has(t, r"\b1[.,]2\s*tce|\btce\s*(1(15|18|20|25|30))\b")
     if c["make_k"] == "nissan":
-        return bool(re.search(r"\b1[.,]2\s*dig-?t|\bdig-?t\s*1(15|30)\b", t))
+        return _has(t, r"\b1[.,]2\s*dig-?t|\bdig-?t\s*1(15|30)\b")
+    if c["make_k"] == "mercedes":
+        return "citan" in (c.get("model") or "").lower() and _has(t, r"\b1[.,]2\b|\b112\b") and "essence" in (c.get("fuel") or "").lower()
     return False
 
 
@@ -280,12 +347,12 @@ def engine_risk(c: dict):
     make_k = scraper.slug(make).replace("-", " ")
     make_k = {"mercedes benz": "mercedes", "ds automobiles": "ds"}.get(make_k, make_k)
     c2 = dict(c, make_k=make_k, gear_k=(c.get("gear") or "").lower())
-    text = f"{c.get('version') or ''} {c.get('subtitle') or ''}".lower()
+    text = f"{c.get('model') or ''} {c.get('version') or ''} {c.get('subtitle') or ''}".lower()
     fuel = (c.get("fuel") or "").lower()
     for r in ENGINE_RISKS:
         try:
             if r["test"](c2, text, fuel):
-                return {"key": r["key"], "label": r["label"], "tip": r["tip"]}
+                return {"key": r["key"], "level": r["level"], "label": r["label"], "tip": r["tip"]}
         except Exception:
             continue
     return None

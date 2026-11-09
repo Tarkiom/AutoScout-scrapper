@@ -231,7 +231,7 @@ def price_model(cars: list[dict]):
 PSA = ("peugeot", "citroen", "ds", "opel")
 VAG = ("volkswagen", "audi", "seat", "skoda", "cupra")
 ENGINE_RISKS = [
-    {"key": "puretech", "label": "1.2 PureTech",
+    {"key": "puretech", "label": "PureTech 1.0 / 1.2",
      "tip": "Courroie de distribution qui baigne dans l'huile et se désagrège, consommation d'huile. Demande la facture du remplacement de courroie et vérifie le niveau d'huile.",
      "test": lambda c, t, f: c["make_k"] in PSA and ("puretech" in t or (re.search(r"\b1[.,]2\b", t) and "essence" in f and c["make_k"] != "opel")) and 2013 <= c["year"] <= 2022},
     {"key": "ecoboost", "label": "1.0 EcoBoost",

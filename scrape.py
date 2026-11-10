@@ -888,6 +888,8 @@ def main():
         except ValueError:
             sys.exit("search_json invalide")
         from_site = True
+        if raw.get("_due"):            # réveil externe ou ouverture du site : seulement les recherches en retard
+            a.due_only = True
         replace = scraper.slug(raw.get("_replace") or "") or None
         delete = scraper.slug(raw.get("_delete") or "") or None
         cli = {k: str(v).strip() for k, v in raw.items() if k in FILTER_KEYS + ["name"] and str(v or "").strip()}

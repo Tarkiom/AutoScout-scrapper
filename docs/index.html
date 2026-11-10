@@ -1409,8 +1409,9 @@ $('#jobClose').onclick = () => { $('#job').hidden = true; renderTray(); };
 async function track(job) {
   const what = [job.search.make, job.search.model].filter(Boolean).join(' ') || 'toutes marques';
   const labels = job.kind === 'delete' ? ['Envoi', 'Suppression', 'Mise à jour', 'Terminé'] : ['Envoi', 'Scraping', 'Publication', 'Prêt'];
+  if (job.kind === 'refresh') $('#jobTitle').textContent = 'Mise à jour des recherches surveillées';
   document.querySelectorAll('#jobSteps .step').forEach((el, i) => { el.textContent = labels[i]; });
-  $('#jobTitle').textContent = job.kind === 'delete' ? `Suppression : ${job.label}` : job.kind === 'edit' ? `Modification : ${what}` : `Recherche ${what}`;
+  $('#jobTitle').textContent = job.kind === 'delete' ? `Suppression : ${job.label}` : job.kind === 'edit' ? `Modification : ${what}` : job.kind === 'refresh' ? 'Mise à jour des recherches surveillées' : `Recherche ${what}`;
   const started = new Date(job.startedAt).getTime();
   const tick = async () => {
     try {
@@ -1452,6 +1453,11 @@ async function track(job) {
           setTimeout(() => { $('#job').hidden = true; renderTray(); }, 6000);
           return;
         }
+        if (job.kind === 'refresh' && Date.now() - new Date(job.doneAt || job.startedAt).getTime() > 2.5 * 60e3) {
+          setJob(3, 'Tout était déjà à jour.'); endJob();
+          setTimeout(() => { $('#job').hidden = true; renderTray(); }, 4000);
+          return;
+        }
         if (Date.now() - new Date(job.doneAt || job.startedAt).getTime() > 6 * 60e3) {
           setJob(2, 'Les résultats tardent à apparaître. Recharge la page dans quelques minutes.', true); endJob(); return;
         }
@@ -1479,11 +1485,32 @@ if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.se
     const wanted = decodeURIComponent(location.hash.slice(1));
     await load(index.some(s => s.slug === wanted) ? wanted : index[0].slug);
   }
+  let running = false;
   try {
     const job = JSON.parse(store.get('job') || 'null');
-    if (job && Date.now() - new Date(job.startedAt) < 20 * 60e3) track(job); else store.set('job', null);
+    if (job && Date.now() - new Date(job.startedAt) < 20 * 60e3) { track(job); running = true; } else store.set('job', null);
   } catch { store.set('job', null); }
+  if (!running) autoRefresh();
 })();
+
+/* Mise à jour automatique à l'ouverture : le planificateur de GitHub saute beaucoup de passages,
+   donc si une recherche surveillée a plus de 6 h et qu'une clé est enregistrée, le site relance lui-même. */
+async function autoRefresh() {
+  if (!token()) return;
+  const stale = index.filter(s => s.watched && (!s.updated || Date.now() - new Date(s.updated) > 6 * 36e5));
+  if (!stale.length) return;
+  const last = +(store.get('auto_refresh_at') || 0);
+  if (Date.now() - last < 30 * 60e3) return;          // pas plus d'une relance automatique par demi-heure
+  store.set('auto_refresh_at', String(Date.now()));
+  const id = Math.random().toString(36).slice(2, 8);
+  try {
+    await gh('/actions/workflows/scrape.yml/dispatches', { method: 'POST', body: JSON.stringify({ ref: 'main',
+      inputs: { search_json: JSON.stringify({ _due: true }), request_id: id, watch: 'false' } }) });
+    const job = { id, kind: 'refresh', search: {}, startedAt: new Date().toISOString(), phase: 0 };
+    store.set('job', JSON.stringify(job));
+    track(job);
+  } catch { /* clé expirée ou réseau : on ne dérange pas, la page reste utilisable */ }
+}
 </script>
 </body>
 </html>

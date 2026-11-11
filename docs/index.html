@@ -16,7 +16,6 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@600;800;900&family=Instrument+Sans:wght@400;500;600;700&family=Martian+Mono:wdth,wght@87.5,500;87.5,700&display=swap">
-<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <style>
 /* Concept : nuit sur un parking de concession. Asphalte granuleux, plaques belges (bordeaux sur blanc, bande UE),
    compteurs kilométriques à rouleaux, aiguille ambre pour l'action. */
@@ -848,6 +847,7 @@ async function load(slug) {
   $('#strictWrap').hidden = !z;
   if (z) $('#strictLbl').textContent = `Rayon strict : ${current.search.radius} km autour de ${z}`;
   renderQuick(); renderCluster(); renderPodium(); drawChart(); renderModel(); drawGrid(true); renderMarket(); renderSold();
+  drawAnalysisCharts();
   $('#vnAnn').textContent = fmt(cars.length);
   const nSold = (current?.sold || []).filter(x => !x.suspicious).length;
   $('#vnSold').textContent = nSold ? fmt(nSold) : '';
@@ -859,6 +859,22 @@ async function load(slug) {
 
 /* ============================================================ vues */
 let view = store.get('view') || 'ann';
+/* Chart.js (~200 Ko) n'est chargé qu'à l'ouverture de l'onglet Analyse */
+let chartLib = null;
+function ensureChart() {
+  if (window.Chart) return Promise.resolve();
+  chartLib ??= new Promise((ok, ko) => {
+    const sc = document.createElement('script');
+    sc.src = 'https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js';
+    sc.onload = ok; sc.onerror = () => { chartLib = null; ko(); };
+    document.head.appendChild(sc);
+  });
+  return chartLib;
+}
+function drawAnalysisCharts() {
+  if (view !== 'ana' || !current) return;
+  ensureChart().then(() => { drawChart(); renderMarket(); resizeCharts(); }).catch(() => {});
+}
 function resizeCharts() { requestAnimationFrame(() => { chart?.resize(); marketChart?.resize(); }); }
 function setView(v) {
   view = v; store.set('view', v);
@@ -866,6 +882,7 @@ function setView(v) {
   $('#v-ann').hidden = v !== 'ann'; $('#v-ana').hidden = v !== 'ana'; $('#v-sold').hidden = v !== 'sold';
   $('#annTools').hidden = v !== 'ann';
   resizeCharts();
+  drawAnalysisCharts();
   const bar = $('#stickybar'), top = bar.getBoundingClientRect().top;
   if (top <= 1) window.scrollTo({ top: window.scrollY + top - parseFloat(getComputedStyle(bar).top || 0), behavior: 'auto' });
 }

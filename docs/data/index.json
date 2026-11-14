@@ -1,14 +1,14 @@
 {
- "updated": "2026-11-14T05:01:43+00:00",
+ "updated": "2026-11-14T11:01:44+00:00",
  "searches": [
   {
    "slug": "max4500-km150000-des2012",
    "label": "Toutes Marques · ≤ 4 500 € · ≤ 150 000 km · dès 2012",
-   "count": 916,
-   "updated": "2026-11-14T05:01:42+00:00",
+   "count": 914,
+   "updated": "2026-11-14T11:01:38+00:00",
    "error": null,
-   "new": 1,
-   "deals": 219,
+   "new": 6,
+   "deals": 231,
    "watched": true
   }
  ]

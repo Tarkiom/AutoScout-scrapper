@@ -1,14 +1,14 @@
 {
- "updated": "2026-11-17T05:01:52+00:00",
+ "updated": "2026-11-17T11:02:03+00:00",
  "searches": [
   {
    "slug": "max4500-km150000-des2012",
    "label": "Toutes Marques · ≤ 4 500 € · ≤ 150 000 km · dès 2012",
-   "count": 927,
-   "updated": "2026-11-17T05:01:50+00:00",
-   "error": null,
-   "new": 0,
-   "deals": 236,
+   "count": 900,
+   "updated": "2026-11-17T11:02:00+00:00",
+   "error": "page 46 : HTTP 502 sur https://www.autoscout24.be/fr/lst?atype=C&cy=B&sort=standard&desc=0&page=46&ustate=N%2CU&priceto=4500&fregfrom=2012&kmto=150000",
+   "new": 7,
+   "deals": 230,
    "watched": true
   }
  ]
